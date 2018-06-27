@@ -76,7 +76,7 @@ class Attn(nn.Module):   #change to _attend from RNNLG
 #        score_x = torch.dot(torch.tanh(torch.dot(state_x, self._____)), self.___)
 #        return score_x
     
-
+class WenAttnDecoderRNN(nn.Module):
 
 class AttnDecoderRNN(nn.Module):
     def __init__(self, attn_model, hidden_size, output_size, n_layers=1, dropout_p=0.1):
