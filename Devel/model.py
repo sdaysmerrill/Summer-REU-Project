@@ -28,7 +28,9 @@ class EncoderRNN(nn.Module):
         if USE_CUDA:hidden = hidden.cuda()
         return hidden
 
-
+class WenAttn(nn.Module):
+    
+    
 class Attn(nn.Module):   #change to _attend from RNNLG
     def __init__(self, method, hidden_size, max_length=MAX_LENGTH):
         super(Attn, self).__init__()
