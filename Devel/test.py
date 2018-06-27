@@ -2,62 +2,32 @@ from model import *
 from train import *
 
 
-def testNet(sentence, max_length=MAX_LENGTH):
-    print("testing the network")
-    
-    input_variable = variable_from_sentence(input_lang, sentence)
-    input_length = input_variable.size()[0]
-    
-    # Run through encoder
-    encoder_hidden = encoder.init_hidden()
-    encoder_outputs, encoder_hidden = encoder(input_variable, encoder_hidden)
+encoder_test = EncoderRNN(10, 10, 2)
+decoder_test = AttnDecoderRNN('general', 10, 10, 2)
+print(encoder_test)
+print(decoder_test)
 
-    # Create starting vectors for decoder
-    decoder_input = Variable(torch.LongTensor([[SOS_token]])) # SOS
-    decoder_context = Variable(torch.zeros(1, decoder.hidden_size))
-    if USE_CUDA:
-        decoder_input = decoder_input.cuda()
-        decoder_context = decoder_context.cuda()
+encoder_hidden = encoder_test.init_hidden()
+word_input = Variable(torch.LongTensor([1, 2, 3]))
+if USE_CUDA:
+    encoder_test.cuda()
+    word_input = word_input.cuda()
+encoder_outputs, encoder_hidden = encoder_test(word_input, encoder_hidden)
 
-    decoder_hidden = encoder_hidden
-    
-    decoded_words = []
-    decoder_attentions = torch.zeros(max_length, max_length)
-    
-    # Run through decoder
-    for di in range(max_length):
-        decoder_output, decoder_context, decoder_hidden, decoder_attention = decoder(decoder_input, decoder_context, decoder_hidden, encoder_outputs)
-        decoder_attentions[di,:decoder_attention.size(2)] += decoder_attention.squeeze(0).squeeze(0).cpu().data
+word_inputs = Variable(torch.LongTensor([1, 2, 3]))
+decoder_attns = torch.zeros(1, 3, 3)
+decoder_hidden = encoder_hidden
+decoder_context = Variable(torch.zeros(1, decoder_test.hidden_size))
 
-        # Choose top word from output
-        topv, topi = decoder_output.data.topk(1)
-        ni = topi[0][0]   #ni holds an index/token
-        if ni == EOS_token:
-            decoded_words.append('<EOS>')
-            break
-        else:
-            decoded_words.append(output_lang.index2word[ni.item()])  
-            
-        # Next input is chosen word
-        decoder_input = Variable(torch.LongTensor([[ni]]))
-        if USE_CUDA: decoder_input = decoder_input.cuda()
-    
-    return decoded_words, decoder_attentions[:di+1, :len(encoder_outputs)]
+if USE_CUDA:
+    decoder_test.cuda()
+    word_inputs = word_inputs.cuda()
+    decoder_context = decoder_context.cuda()
 
-
-def evaluate_randomly():
-    pair = random.choice(pairs)
-    
-    output_words, decoder_attn = testNet(pair[0])
-    output_sentence = ' '.join(output_words)
-    
-    print('>', pair[0])
-    print('=', pair[1])
-    print('<', output_sentence)
-    print('')
-
-
-evaluate_randomly() 
+for i in range(3):
+    decoder_output, decoder_context, decoder_hidden, decoder_attn = decoder_test(word_inputs[i], decoder_context, decoder_hidden, encoder_outputs)
+    print(decoder_output.size(), decoder_hidden.size(), decoder_attn.size())
+    decoder_attns[0, i] = decoder_attn.squeeze(0).cpu().data
 
    
 

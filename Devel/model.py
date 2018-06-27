@@ -6,8 +6,6 @@ class EncoderRNN(nn.Module):
     def __init__(self, input_size, hidden_size, n_layers=1):
         super(EncoderRNN, self).__init__()
         
-        #I need a context vector!!!
-        
         self.input_size = input_size
         self.hidden_size = hidden_size
         self.n_layers = n_layers
@@ -30,49 +28,8 @@ class EncoderRNN(nn.Module):
         if USE_CUDA:hidden = hidden.cuda()
         return hidden
 
-class BahdanauAttnDecoderRNN(nn.Module):
-    def __init__(self, hidden_size, output_size, n_layers=1, dropout_p=0.1):
-        super(AttnDecoderRNN, self).__init__()
-        
-        # Define parameters
-        self.hidden_size = hidden_size
-        self.output_size = output_size
-        self.n_layers = n_layers
-        self.dropout_p = dropout_p
-        self.max_length = max_length
-        
-        # Define layers
-        self.embedding = nn.Embedding(output_size, hidden_size)
-        self.dropout = nn.Dropout(dropout_p)
-        self.attn = GeneralAttn(hidden_size)
-        #change to LSTM
-        self.gru = nn.GRU(hidden_size * 2, hidden_size, n_layers, dropout=dropout_p)
-        self.out = nn.Linear(hidden_size, output_size)
-    
-    def forward(self, word_input, last_hidden, encoder_outputs):
-        # Note that we will only be running forward for a single decoder time step, but will use all encoder outputs
-        
-        # Get the embedding of the current input word (last output word)
-        word_embedded = self.embedding(word_input).view(1, 1, -1) # S=1 x B x N
-        word_embedded = self.dropout(word_embedded)
-        
-        # Calculate attention weights and apply to encoder outputs
-        attn_weights = self.attn(last_hidden[-1], encoder_outputs)
-        context = attn_weights.bmm(encoder_outputs.transpose(0, 1)) # B x 1 x N
-        
-        # Combine embedded input word and attended context, run through RNN
-        rnn_input = torch.cat((word_embedded, context), 2)
-        #change to LSTM
-        output, hidden = self.gru(rnn_input, last_hidden)
-        
-        # Final output layer
-        output = output.squeeze(0) # B x N
-        output = F.log_softmax(self.out(torch.cat((output, context), 1)))
-        
-        # Return final output, hidden state, and attention weights (for visualization)
-        return output, hidden, attn_weights
 
-class Attn(nn.Module):
+class Attn(nn.Module):   #change to _attend from RNNLG
     def __init__(self, method, hidden_size, max_length=MAX_LENGTH):
         super(Attn, self).__init__()
         
@@ -111,22 +68,12 @@ class Attn(nn.Module):
             energy = self.attn(torch.cat((hidden, encoder_output), 1))
             energy = torch.dot(self.v.view(-1), energy.view(-1))
         return energy
+
+ #   def _attend():
+#        state_x = torch.cat([], axis = 1)
+#        score_x = torch.dot(torch.tanh(torch.dot(state_x, self._____)), self.___)
+#        return score_x
     
-#    def score(self, hidden, encoder_output):
-        
-#        if self.method == 'dot':
-#            energy = hidden.dot(encoder_output)
-#            return energy
-        
-#        elif self.method == 'general':
-#            energy = self.attn(encoder_output)
-#            energy = hidden.dot(energy)
-#            return energy
-        
-#        elif self.method == 'concat':
-#            energy = self.attn(torch.cat((hidden, encoder_output), 1))
-#            energy = self.other.dot(energy)
-#            return energy
 
 
 class AttnDecoderRNN(nn.Module):
