@@ -16,7 +16,7 @@ input_variable = training_pair[0]
 target_variable = training_pair[1]
 
 
-attn_model = 'general'
+##attn_model = 'general'
 hidden_size = 500
 n_layers = 2
 dropout_p = 0.05
