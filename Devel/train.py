@@ -1,7 +1,5 @@
-from model import *
+from main import *
 
-teacher_forcing_ratio = 0.5
-clip = 5.0
 
 def trainNet(input_variable, target_variable, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion, max_length=MAX_LENGTH):
 
@@ -16,11 +14,11 @@ def trainNet(input_variable, target_variable, encoder, decoder, encoder_optimize
 
     # Run words through encoder
     encoder_hidden = encoder.init_hidden()
-    encoder_outputs, encoder_hidden = encoder(input_variable, encoder_hidden)
+    encoder_outputs, encoder_hidden = encoder(input_variable, encoder_hidden, hidden_size)  
     
     # Prepare input and output variables
     decoder_input = Variable(torch.LongTensor([[SOS_token]]))
-    decoder_context = Variable(torch.zeros(1, decoder.hidden_size))
+    decoder_context = Variable(torch.zeros(1, encoder.hidden_size))
     decoder_hidden = encoder_hidden # Use last hidden state from encoder to start decoder
     if USE_CUDA:
         decoder_input = decoder_input.cuda()
@@ -65,76 +63,62 @@ def trainNet(input_variable, target_variable, encoder, decoder, encoder_optimize
     return loss.data / target_length
 
 
-def as_minutes(s):
-    m = math.floor(s / 60)
-    s -= m * 60
-    return '%dm %ds' % (m, s)
 
-def time_since(since, percent):
-    now = time.time()
-    s = now - since
-    es = s / (percent)
-    rs = es - s
-    return '%s (- %s)' % (as_minutes(s), as_minutes(rs))
 
-attn_model = 'general'
-hidden_size = 500
-n_layers = 2
-dropout_p = 0.05
+    def as_minutes(s):
+        m = math.floor(s / 60)
+        s -= m * 60
+        return '%dm %ds' % (m, s)
 
-# Initialize models
-encoder = EncoderRNN(input_lang.n_words, hidden_size, n_layers)
-decoder = AttnDecoderRNN(attn_model, hidden_size, output_lang.n_words, n_layers, dropout_p=dropout_p)
+    def time_since(since, percent):
+        now = time.time()
+        s = now - since
+        es = s / (percent)
+        rs = es - s
+        return '%s (- %s)' % (as_minutes(s), as_minutes(rs))
 
-# Move models to GPU
-if USE_CUDA:
-    encoder.cuda()
-    decoder.cuda()
 
-# Initialize optimizers and criterion
-learning_rate = 0.0001
-encoder_optimizer = optim.SGD(encoder.parameters(), lr=learning_rate)
-decoder_optimizer = optim.SGD(decoder.parameters(), lr=learning_rate)
-criterion = nn.NLLLoss()
+    # Configuring training
+    n_epochs = 500    #this is supposed to be 50000
+    plot_every = 250  #200
+    print_every = 100 #1000
 
-# Configuring training
-n_epochs = 500    #this is supposed to be 50000
-plot_every = 250  #200
-print_every = 100 #1000
+    # Keep track of time elapsed and running averages
+    start = time.time()
+    plot_losses = []
+    print_loss_total = 0 # Reset every print_every
+    plot_loss_total = 0 # Reset every plot_every
 
-# Keep track of time elapsed and running averages
-start = time.time()
-plot_losses = []
-print_loss_total = 0 # Reset every print_every
-plot_loss_total = 0 # Reset every plot_every
 
-# Begin!
-for epoch in range(1, n_epochs + 1):
-    
-    # Get training data for this cycle
-    training_pair = variables_from_pair(random.choice(pairs))
-    input_variable = training_pair[0]
-    target_variable = training_pair[1]
+    #input_varaible = variables_from_pair.input_variable
+    #target_variable = variables_from_pair.target_variable
 
-    # Run the train function
-    loss = trainNet(input_variable, target_variable, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion)
+    # Begin!
+    for epoch in range(1, n_epochs + 1):
+        
+        # Get training data for this cycle
+        training_pair = variables_from_pair(random.choice(pairs))
+        input_variable = training_pair[0]
+        target_variable = training_pair[1]
 
-    # Keep track of loss
-    print_loss_total += loss
-    plot_loss_total += loss
+        # Run the train function
+        loss = trainNet(input_variable, target_variable, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion)
 
-    if epoch == 0: continue
+        # Keep track of loss
+        print_loss_total += loss
+        plot_loss_total += loss
 
-    if epoch % print_every == 0:
-        print_loss_avg = print_loss_total / print_every
-        print_loss_total = 0
-        print_summary = '%s (%d %d%%) %.4f' % (time_since(start, epoch *1.0 / n_epochs * 1.0), epoch, epoch*1.0 / n_epochs*1.0 * 100, print_loss_avg)
-        print(print_summary)
+        if epoch == 0: continue
 
-    if epoch % plot_every == 0:
-        plot_loss_avg = plot_loss_total / plot_every
-        plot_losses.append(plot_loss_avg)
-        plot_loss_total = 0
+        if epoch % print_every == 0:
+            print_loss_avg = print_loss_total / print_every
+            print_loss_total = 0
+            print_summary = '%s (%d %d%%) %.4f' % (time_since(start, epoch *1.0 / n_epochs * 1.0), epoch, epoch*1.0 / n_epochs*1.0 * 100, print_loss_avg)
+            print(print_summary)
 
+        if epoch % plot_every == 0:
+            plot_loss_avg = plot_loss_total / plot_every
+            plot_losses.append(plot_loss_avg)
+            plot_loss_total = 0
    
 

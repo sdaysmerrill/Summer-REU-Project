@@ -1,3 +1,9 @@
+#####################################################################
+##        Sarah Days-Merrill  Louisiana State University           ##
+##             CCT REU     Mentor: Dr. Joohyun Kim                 ##
+#####################################################################
+
+
 import unicodedata
 import string
 import re
