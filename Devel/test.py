@@ -3,7 +3,7 @@ from train import *
 
 
 encoder_test = EncoderRNN(10, 10, 2)
-decoder_test = AttnDecoderRNN('general', 10, 10, 2)
+decoder_test = DecoderRNN(10, 10, 2, 0.05)   #'general',
 print(encoder_test)
 print(decoder_test)
 
@@ -12,7 +12,7 @@ word_input = Variable(torch.LongTensor([1, 2, 3]))
 if USE_CUDA:
     encoder_test.cuda()
     word_input = word_input.cuda()
-encoder_outputs, encoder_hidden = encoder_test(word_input, encoder_hidden)
+encoder_outputs, encoder_hidden = encoder_test(word_input, encoder_hidden, 1)
 
 word_inputs = Variable(torch.LongTensor([1, 2, 3]))
 decoder_attns = torch.zeros(1, 3, 3)
