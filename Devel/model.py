@@ -7,6 +7,7 @@
 from data import *
 
 
+
 class EncoderRNN(nn.Module):
     def __init__(self, input_size, hidden_size, n_layers=1):
         super(EncoderRNN,self).__init__()
@@ -46,26 +47,7 @@ class EncoderRNN(nn.Module):
 
 #        return a_emb, sv_emb
     
- #   def lstm():
-        #attention
-
-        #compute ig,fg,og together and slice it
-#        gates_t = torch.dot(torch.cat([prev_hidden_state, da_emb_t], axis=1), self.Wgate)
-        #compute all the gates
-#        ig = nn.Sigmoid(gates_t[:,:self.dh])
-#        fg = nn.Sigmoid(gates_t[:, self.dh:self.dh*2])
-#        og = nn.Sigmoid(gates_t[:,self.dh*2:self.dh*3])
-#        cx_t = nn.Tanh(gates_t[:,self.dh*3:])
-        #update interal LSTM state
-#        c_t = ig*cx_t + fg*c_tm1
-        #new hidden state
-#        h_t = og* nn.Tanh(c_t)
-        #output and probability of target word
-#        o_t = nn.Softmax(torch.dot(h_t, self.Who)
-#        p_t = o_t*[torch.arrange(self.db),y_t]   #something wrong with this line
-                         #invalid syntax here too
-
-#        return h_t, c_t, p_t
+ 
 
 #class LSTM(nn.Module):
 #    def __init__(self, input_size, hidden_size, embed_size):#, output_size):
@@ -120,20 +102,23 @@ class EncoderRNN(nn.Module):
         
 
 class WenAttn(nn.Module):
+    def attend(self,hidden_size,attn):
+        print("in attention")
+        state_x = nn.Linear(hidden_size,attn)   
+        score_x = nn.Tanh(nn.Linear(state_x))
+        return score_x
+    
     def __init__(self, hidden_size, max_length=MAX_LENGTH):
         super(WenAttn, self).__init__()
         
  #       self.method = method
         self.hidden_size = hidden_size
-        self.attn = nn.Linear(self.hidden_size, hidden_size)
+        self.attn = nn.Linear(self.hidden_size, hidden_size)   #issue is that these are tensors
+
+        self.attend(self.hidden_size,self.attn)
     
-    def attend(hidden_size,attn):
-        state_x = nn.Linear(hidden_size,attn)
-        score_x = nn.Tanh(nn.Linear(state_x))
-        return score_x
 
-
-
+    
 class DecoderRNN(nn.Module):
     def __init__(self, hidden_size, output_size, n_layers, dropout_p):   #n_layers = 1, dropout_p=0.1
         super(DecoderRNN, self).__init__()
@@ -151,8 +136,8 @@ class DecoderRNN(nn.Module):
         self.gru = nn.GRU(hidden_size * 2, hidden_size, n_layers, dropout=dropout_p)
         self.out = nn.Linear(hidden_size * 2, output_size)
 
-        self.attn = WenAttn(hidden_size)
-
+ #       self.attn = WenAttn(hidden_size)
+     
     
     def forward(self, word_input, last_context, last_hidden, encoder_outputs):
         # Note: we run this one step at a time
@@ -167,7 +152,7 @@ class DecoderRNN(nn.Module):
 
         
         # Calculate attention from current RNN state and all encoder outputs; apply to encoder outputs
-        attn_weights = self.attn(encoder_outputs.squeeze(0))     #rnn_output.squeeze(0),
+        attn_weights = WenAttn(encoder_outputs.squeeze(0))     #rnn_output.squeeze(0),
         context = attn_weights.bmm(encoder_outputs.transpose(0, 1)) # B x 1 x N
         
         # Final output layer (next word prediction) using the RNN hidden state and context vector
