@@ -37,7 +37,7 @@ class EncoderRNN(nn.Module):
         return hidden
     
     def setWordVec(self, word2vec):  #figure out where word2vec comes from
-        self.Wemb_np = self.Wemb.get_value()   #where is .get_value() - built-in
+        self.Wemb_np = self.Wemb.get_value()   
         for w, v in word2vec.iteritems():
             self.Wemb_np[w,:] = v
         self.Wemb.set_value(self.Wemb_np)
@@ -185,6 +185,7 @@ class DecoderRNN(nn.Module):
 
 class EncDecRNN(nn.Module):
     def __int__(self, input_size, hidden_size, n_layers, dropout_p = dropout_p):
+        super(EncDecRNN, self).__init__()
         self.input_size = input_size
         self.hidden_size = hidden_size
         self.n_layers = n_layers
