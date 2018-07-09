@@ -1,11 +1,19 @@
+#####################################################################
+##                    Sarah Days-Merrill                           ##
+##             CCT REU Louisiana State University                  ##
+#####################################################################
+
+
 from main import *
 
 
-def trainNet(input_variable, target_variable, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion, max_length=MAX_LENGTH):
+MAX_LENGTH = 10
+
+def trainNet(input_variable, target_variable, encdec, encdec_optimizer, criterion, max_length=MAX_LENGTH):
 
     # Zero gradients of both optimizers
-    encoder_optimizer.zero_grad()
-    decoder_optimizer.zero_grad()
+    encdec_optimizer.zero_grad()
+
     loss = 0 # Added onto for each word
 
     # Get size of input and target sentences
@@ -25,40 +33,42 @@ def trainNet(input_variable, target_variable, encoder, decoder, encoder_optimize
         decoder_context = decoder_context.cuda()
 
     # Choose whether to use teacher forcing
-    use_teacher_forcing = random.random() < teacher_forcing_ratio
-    if use_teacher_forcing:
+ #   use_teacher_forcing = random.random() < teacher_forcing_ratio
+#    if use_teacher_forcing:
         
         # Teacher forcing: Use the ground-truth target as the next input
-        for di in range(target_length):
-            decoder_output, decoder_context, decoder_hidden, decoder_attention = decoder(decoder_input, decoder_context, decoder_hidden, encoder_outputs)
-            loss += criterion(decoder_output, target_variable[di])
-            decoder_input = target_variable[di] # Next target is next input
+ #       for di in range(target_length):
+ #           decoder_output, decoder_context, decoder_hidden, decoder_attention = decoder(decoder_input, decoder_context, decoder_hidden, encoder_outputs)
+ #           loss += criterion(decoder_output, target_variable[di])
+ #           decoder_input = target_variable[di] # Next target is next input
 
-    else:
+   # else:
         # Without teacher forcing: use network's own prediction as the next input
-        for di in range(target_length):
-            decoder_output, decoder_context, decoder_hidden, decoder_attention = decoder(decoder_input, decoder_context, decoder_hidden, encoder_outputs)
-            loss += criterion(decoder_output, target_variable[di])
+    for di in range(target_length):
+        decoder_output, decoder_context, decoder_hidden, decoder_attention = decoder(decoder_input, decoder_context, decoder_hidden, encoder_outputs)
+        loss += criterion(decoder_output, target_variable[di])
             
             # Get most likely word index (highest value) from output
-            topv, topi = decoder_output.data.topk(1)
-            ni = topi[0][0]
+        topv, topi = decoder_output.data.topk(1)
+        ni = topi[0][0]
             
-            decoder_input = Variable(torch.LongTensor([[ni]])) # Chosen word is next input
-            if USE_CUDA: decoder_input = decoder_input.cuda()
+        decoder_input = Variable(torch.LongTensor([[ni]])) # Chosen word is next input
+        if USE_CUDA: decoder_input = decoder_input.cuda()
 
             # Stop at end of sentence (not necessary when using known targets)
-            if ni == EOS_token: break
+        if ni == EOS_token: break
 
     # Backpropagation
+    clip = 5.0
     loss.backward()
-    torch.nn.utils.clip_grad_norm(encoder.parameters(), clip)
+    torch.nn.utils.clip_grad_norm(encdec.parameters(), clip)
+ #   torch.nn.utils.clip_grad_norm(encoder.parameters(), clip)
   # torch.nn.utils.clip_grad_norm_.torch.nn.utils.clip_grad_norm(encoder.parameters(), clip)
     torch.nn.utils.clip_grad_norm(decoder.parameters(), clip)
   # torch.nn.utils.clip_grad_norm_.torch.nn.utils.clip_grad_norm(decoder.parameters(), clip)
     
-    encoder_optimizer.step()
-    decoder_optimizer.step()
+    encdec_optimizer.step()
+
     
     return loss.data / target_length
 
@@ -102,7 +112,7 @@ def trainNet(input_variable, target_variable, encoder, decoder, encoder_optimize
         target_variable = training_pair[1]
 
         # Run the train function
-        loss = trainNet(input_variable, target_variable, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion)
+        loss = trainNet(input_variable, target_variable, encdec, encdec_optimizer, criterion)
 
         # Keep track of loss
         print_loss_total += loss
