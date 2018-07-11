@@ -7,7 +7,7 @@
 import argparse
 from data import *
 from model import *
-from train import *
+#from train import trainRNN
 #from test import testNet
 
 MAX_LENGTH = 10
@@ -19,10 +19,12 @@ MAX_LENGTH = 10
 hidden_size = 500
 n_layers = 1
 dropout_p = 0.05
-input_size = 5
-# Initialize model
+learning_rate = 0.0001
 
-encdec = EncDecRNN() #input_size, hidden_size, n_layers, dropout_p = dropout_p)  #add parameters
+# Initialize model
+encdecrnn = EncDecRNN() #input_size, hidden_size, n_layers, dropout_p = dropout_p)  #add parameters
+
+
 
 
 # Move models to GPU
@@ -31,28 +33,21 @@ encdec = EncDecRNN() #input_size, hidden_size, n_layers, dropout_p = dropout_p) 
 #    decoder.cuda()
 
 # Initialize optimizers and criterion
-learning_rate = 0.0001
 
 
-encdec_optimizer = optim.SGD(encdec.parameters(), lr=learning_rate)
+
+#encdec_optimizer = optim.SGD(encdec.parameters(), lr=learning_rate)
 #error: has empty parameter list
-criterion = nn.NLLLoss()
+#criterion = nn.NLLLoss()
 
 
 
 
 #this is the end of main file
 if __name__ == '__main__':
- #   parser = argparse.ArgumentParser()
-#    parser.add_argument('-mode')
-#    parser.add_argument('-cuda')
-#    args = parser.parse_args()
-
-#    args.cuda = args.cuda.lower
-
-
-
-    parser = argparse.ArgumentParser(description='VAE MNIST Example')
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-mode')
+    parser.add_argument('-config', help='config file to set.')
     parser.add_argument('--batch-size', type=int, default=128, metavar='N',
                     help='input batch size for training (default: 128)')
     parser.add_argument('--epochs', type=int, default=10, metavar='N',
@@ -70,18 +65,28 @@ if __name__ == '__main__':
     
     if args.cuda == 'yes':
         USE_CUDA = True
-        encdec.cuda()
+        encdecrnn.cuda()
 
     else:
         USE_CUDA = False
+
+    if args.config == 'encdec.cfg':
+        config = 'encdec.cfg'
+        
+        
+    else:
+       config = None
+
+    #data loading
+    data_load = Model(config, opts = None)
     
     if args.mode == 'train':
         print("Begin training")
-        trainNet(input_variable, target_variable, encdec, encdec_optimizer, criterion, max_length=MAX_LENGTH)
+ #       training = trainRNN()
         
     elif args.mode == 'test':
         print("Start testing")
-        testNet()  
+ #       testNet()  
 
     else:
         print("Please specify a mode")

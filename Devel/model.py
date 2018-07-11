@@ -36,11 +36,7 @@ class EncoderRNN(nn.Module):
         if USE_CUDA:hidden = hidden.cuda()
         return hidden
     
-    def setWordVec(self, word2vec):  #figure out where word2vec comes from
-        self.Wemb_np = self.Wemb.get_value()   
-        for w, v in word2vec.iteritems():
-            self.Wemb_np[w,:] = v
-        self.Wemb.set_value(self.Wemb_np)
+   
 
 #    def emb(self, a, s, v):
 #        a_emb = torch.sum(self.Wah[a,:], axis =0)
@@ -194,7 +190,58 @@ class EncDecRNN(nn.Module):
         self.encoder = EncoderRNN(self.input_size, self.hidden_size, self.n_layers)
         self.decoder = DecoderRNN(self.hidden_size, self.output_size, self.n_layers, self.dropout_p)
 
+#    def __init__(self, gentype, vocab, beamwidth, overgen, vocab_size,
+#                 hidden_size, batch_size, da_sizes):   
+#        BaseRLG.__init__(self, gentype, vocab, beamwidth, overgen, vocab_size,
+#                 hidden_size, batch_size, da_sizes)   
+#        self.da = self.dfs[1]-self.dfs[0]   #what is dfs??
+#        self.ds = self.dfs[3]-self.dfs[2]
+#        self.dv = self.dfs[4]-self.dfs[3]
+
+#        self.init_params()
+
+#    def init_params(self):
+        #word embedding weight matrix   - where does di and dh come from??
+        #self.di and self.dh give the dimensions of the tensor
+#        self.Wemb = 0.3 * np.random.uniform(-1.0,1.0, (self.di, self.dh)).astype(float)
+#        self.Wemb = torch.from_numpy(self.Wemb)
+        #torch.rand.uniform(-1.0,1.0,(self.di, self.dh)).astype(floatX) *0.3
+
+        #DA embedding
+        #need to find a way to get around using numpy first
+#        self.Wah = 0.3 * np.random.uniform(-1.0,1.0,(self.da+1, self.dh)).astype(float)
+#        self.Wah = torch.from_numpy(self.Wah)
+#        self.Wsh = 0.3 * np.random.uniform(-1.0,1.0,(self.ds+1, self.dh)).astype(float)
+#        self.Wsh = torch.from_numpy(self.Wsh)
+#        self. Wvh = 0.3 * np.random.uniform(-1.0,1.0,(self.dv+1, self.dh)).astype(float)
+#        self.Wvh = torch.from_numpy(self.Wvh)
+        
+        #attention weights
+#        self.Wha = 0.3 * np.random.uniform(-1.0,1.0,(self.dh*3 self.dh)).astype(float)
+#        self.Wha = torch.from_numpy(self.Wha)
+#        self.Vha = 0.3 * np.random.uniform(-1.0,1.0,(self.dh)).astype(float)
+#        self.Vha = torch.from_numpy(self.Vha)
+
+        #LSTM gate matrix
+#        self.Wgate = 0.3 * np.random.uniform(-1.0,1.0,(self.dh*3, self.dh)*4).astype(float)
+#        self.Wgate = torch.from_numpy(self.Wgate)
+
+        #hidden to output matrix
+#        self.Who = 0.3 * np.random.uniform(-1.0,1.0,(self.dh, self.di)).astype(float)
+#        self.Who = torch.from_numpy(self.Who)
+
+        #initialize the hidden state and cell
+#        self.h0 = torch.zeros(self.db,self.dh, dtype = float)
+#        self.c0 = torch.zeros(self.db,self.dh, dtype = float)
+
+
     def forward(self, input_size, hidden_size, n_layers, dropout_p = dropout_p):
         enc_output, enc_hidden = self.encoder(input_size, hidden_size, n_layers)
         dec_output, dec_context, dec_hidden, dec_attn_weights = self.decoder(hidden_size, output_size, n_layers, dropout_p=dropout_p)
         return dec_output, dec_context, dec_hidden, dec_attn_weights
+
+    def setWordVec(self, word2vec):  #figure out how to rewrite parameters or something
+        self.Wemb_np = self.Wemb.get_value()   
+        for w, v in word2vec.iteritems():
+            self.Wemb_np[w,:] = v
+        self.Wemb.set_value(self.Wemb_np)

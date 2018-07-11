@@ -17,8 +17,8 @@ from torch.autograd import Variable
 from torch import optim
 import torch.nn.functional as F
 
-#from nn.NNGenerator import *
-
+#from NNGenerator import *
+from model import EncDecRNN
 from loader.DataReader import *
 from loader.GentScorer import *
 
@@ -87,7 +87,7 @@ class Model(object):
             self.mode       = parser.get('train_mode','mode')
             self.obj        = parser.get('train_mode','obj')
             self.gamma      = parser.getfloat('train_mode','gamma')
-            self.batch      = parser.getint('train_mode','batch')
+            self.batch      = parser.getint('train_mode','batch')    #changed getint to get
             # setting file paths
             if self.debug:
                 print 'loading file path from config file ...'
@@ -107,7 +107,7 @@ class Model(object):
             self.decode     = parser.get('gen','decode')
             # setting rnn configuration
             self.gentype    = parser.get('generator','type')
-            self.dh         = parser.getint('generator','hidden')
+            self.dh         = parser.getint('generator','hidden')  #changed getint to get
             # set random seed
             np.random.seed(self.seed)
             random.seed(self.seed)
@@ -134,11 +134,11 @@ class Model(object):
             if self.debug:
                 print '\tsetting recurrent generator, type: %s ...' % \
                         self.gentype
-            self.model = NNGenerator(self.gentype, self.reader.vocab,
-                    self.beamwidth, self.overgen,
-                    self.di, self.dh, self.batch, self.reader.dfs, 
-                    self.obj, self.mode, self.decode, 
-                    self.reader.tokenMap2Indexes()) 
+            self.model =  EncDecRNN() #NNGenerator(self.gentype, self.reader.vocab,
+ #                   self.beamwidth, self.overgen,
+#                    self.di, self.dh, self.batch, self.reader.dfs, 
+#                    self.obj, self.mode, self.decode, 
+#                    self.reader.tokenMap2Indexes()) 
             # setting word vectors
             if self.wvecfile!='None':
                 self.model.setWordVec(self.reader.readVecFile(
