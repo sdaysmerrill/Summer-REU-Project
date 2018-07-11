@@ -19,7 +19,7 @@ class EncoderRNN(nn.Module):
         self.embedding = nn.Embedding(input_size, hidden_size)
  #       self.gru = nn.GRU(hidden_size, hidden_size)
 
-    def forward(self, input, hidden):
+    def forward(self, input):
         output = self.embedding(input).view(1, 1, -1)
  #       output, hidden = self.gru(output, hidden)
         return output
@@ -28,7 +28,7 @@ class EncoderRNN(nn.Module):
         return torch.zeros(1, 1, self.hidden_size, device=device)
 
 
-    def setWordVec(self, word2vec):  
+    def setWordVec(self, word2vec):
         self.Wemb_np = self.Wemb.get_value()   
         for w, v in word2vec.iteritems():
             self.Wemb_np[w,:] = v

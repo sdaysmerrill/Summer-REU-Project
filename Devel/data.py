@@ -18,7 +18,7 @@ from torch import optim
 import torch.nn.functional as F
 
 #from NNGenerator import *
-from model import EncDecRNN
+from model import EncoderRNN
 from loader.DataReader import *
 from loader.GentScorer import *
 
@@ -134,7 +134,7 @@ class Model(object):
             if self.debug:
                 print '\tsetting recurrent generator, type: %s ...' % \
                         self.gentype
-            self.model =  EncDecRNN() #NNGenerator(self.gentype, self.reader.vocab,
+            self.model =  EncoderRNN(self.di, self.dh) #NNGenerator(self.gentype, self.reader.vocab,
  #                   self.beamwidth, self.overgen,
 #                    self.di, self.dh, self.batch, self.reader.dfs, 
 #                    self.obj, self.mode, self.decode, 
