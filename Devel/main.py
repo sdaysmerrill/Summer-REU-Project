@@ -7,43 +7,11 @@
 import argparse
 from data import *
 from model import *
-#from train import trainRNN
+from train import *
 #from test import testNet
 
-MAX_LENGTH = 10
-
-#teacher_forcing_ratio = 0.5
-#clip = 5.0
 
 
-hidden_size = 500
-n_layers = 1
-dropout_p = 0.05
-learning_rate = 0.0001
-
-# Initialize model
-encdecrnn = EncDecRNN() #input_size, hidden_size, n_layers, dropout_p = dropout_p)  #add parameters
-
-
-
-
-# Move models to GPU
-#if USE_CUDA:
-#    encoder.cuda()
-#    decoder.cuda()
-
-# Initialize optimizers and criterion
-
-
-
-#encdec_optimizer = optim.SGD(encdec.parameters(), lr=learning_rate)
-#error: has empty parameter list
-#criterion = nn.NLLLoss()
-
-
-
-
-#this is the end of main file
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-mode')
@@ -61,28 +29,25 @@ if __name__ == '__main__':
     args = parser.parse_args()
     args.cuda = not args.no_cuda and torch.cuda.is_available()
 
-
     
-    if args.cuda == 'yes':
-        USE_CUDA = True
-        encdecrnn.cuda()
-
-    else:
-        USE_CUDA = False
-
+   
     if args.config == 'encdec.cfg':
-        config = 'encdec.cfg'
+        config = 'encdec.cfg'    #set config file
         
         
     else:
        config = None
 
+    dmodel = Model()  #Model() is the class in data.py that deals with data processing
+    call_model = dmodel.initNet(config)
+    
     #data loading
     data_load = Model(config, opts = None)
-    
+
+    train = Train(dmodel)  #Train() is the class in train.py
     if args.mode == 'train':
         print("Begin training")
- #       training = trainRNN()
+        train.trainNet()  #call the function train() in the class Train()
         
     elif args.mode == 'test':
         print("Start testing")
