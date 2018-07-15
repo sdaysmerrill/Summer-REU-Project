@@ -71,7 +71,7 @@ class Model(object):
 
     def initNet(self,config,opts=None):
             
-            print '\n\ninit net from scrach ... '
+            print '\n\ninit net from scratch ... '
 
             # config parser
             parser = SafeConfigParser()
