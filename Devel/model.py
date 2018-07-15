@@ -5,53 +5,57 @@
 
 
 from data import *
-import numpy as np
+
 
 MAX_LENGTH = 10
 USE_CUDA = False
 dropout_p = 0.05
 
+#encoder is still not quite right
+#still need to incorporate the slot value pairs with embedding
+#the parameters are numbers (similar to the tutorial) but we need words so we can use setWordVec
 class EncoderRNN(nn.Module):
-    def __init__(self, input_size, hidden_size):
+    def __init__(self, input_size, hidden_size, n_layers=2):
         super(EncoderRNN, self).__init__()
-        self.hidden_size = hidden_size
+        #defined in config file
+        self.input_size = input_size    #748
+        self.hidden_size = hidden_size  #80 
+        self.n_layers = n_layers
+        print(self.input_size)
+        print(self.hidden_size)
 
-        self.embedding = nn.Embedding(input_size, hidden_size)
- #       self.gru = nn.GRU(hidden_size, hidden_size)
+ #       self.embedding = nn.Embedding(self.input_size, self.hidden_size)
+#        self.gru = nn.GRU(hidden_size, hidden_size, n_layers)
+        
+    def forward(self):  
+         
+        input_emb = setWordVec(self.input_size)  #however input_size is a number not a word
+        hidden_emb = setWordVec(self.hidden_size)
+        
+        return output, hidden
 
-    def forward(self, input):
-        output = self.embedding(input).view(1, 1, -1)
- #       output, hidden = self.gru(output, hidden)
-        return output
+    def init_hidden(self):
+        hidden = Variable(torch.zeros(self.n_layers, 1, self.hidden_size))
+        if USE_CUDA: hidden = hidden.cuda()
+        return hidden
 
-    def initHidden(self):
-        return torch.zeros(1, 1, self.hidden_size, device=device)
+    def setWordVec(self, word2vec):   #but input_size is a number not a word
+        self.input_np = self.input_size.get_value()
+        for w,v in word2vec.iteritems():
+            self.input_np[w,:] = v
+        self.input_size.set_value(self.input_np)
 
-
-    def setWordVec(self, word2vec):
-        self.Wemb_np = self.Wemb.get_value()   
-        for w, v in word2vec.iteritems():
-            self.Wemb_np[w,:] = v
-        self.Wemb.set_value(self.Wemb_np)
-   
-
-    def emb(self, a, s, v):
-        a_emb = torch.sum(self.Wah[a,:], axis =0)
-        s_emb = self.Wsh[s,:]
-        v_emb = self.Wvh[v,:]
-        sv_emb = s_emb + v_emb
-
-        return a_emb, sv_emb
+ #   def _emb():
     
  
-
+#still need to incorporate this into the model in the decoder
 class LSTM(nn.Module):
-    def __init__(self, input_size, hidden_size, embed_size):  #, output_size):
+    def __init__(self, input_size, hidden_size, embed_size):  
         super(LSTM, self).__init__()
 
         self.hidden_size = hidden_size
         # input embedding
-        self.encoder = EncoderRNN(input_size, hidden_size)  ##nn.Embedding(input_size, embed_size)
+        self.encoder = EncoderRNN(input_size, hidden_size)  
         # lstm weights
         self.weight_fm = nn.Linear(hidden_size, hidden_size)
         self.weight_im = nn.Linear(hidden_size, hidden_size)
@@ -65,7 +69,7 @@ class LSTM(nn.Module):
         self.weight_mh = nn.Linear(hidden_size, hidden_size)
         self.weight_mx = nn.Linear(embed_size, hidden_size)
         # decoder
-        self.decoder = DecoderRNN(hidden_size, output_size)###nn.Linear(hidden_size, output_size)
+        self.decoder = DecoderRNN(hidden_size, output_size)
 
 
     def forward(self, inp, h_0, c_0):
@@ -101,24 +105,22 @@ class WenAttn(nn.Module):
     def __init__(self, hidden_size, max_length=MAX_LENGTH):
         super(WenAttn, self).__init__()
         
- #       self.method = method
         self.hidden_size = hidden_size
-        self.attn = nn.Linear(self.hidden_size, hidden_size)   #issue is that these are tensors
+        self.attn = nn.Linear(self.hidden_size, hidden_size)   
 
- #       self.attend(self.hidden_size,self.attn)
-
+ #      
     def forward(self,hidden,encoder_outputs):
         seq_len = len(encoder_outputs)
 
-        # Create variable to store attention energies
+        # Create variable to store attention scores
         attn_scores = Variable(torch.zeros(seq_len)) # B x 1 x S
         if USE_CUDA: attn_scores = attn_scores.cuda()
 
-        # Calculate energies for each encoder output
+        # Calculate scores for each encoder output
         for i in range(seq_len):
             attn_scores[i] = self.score(hidden, encoder_outputs[i])
 
-        # Normalize energies to weights in range 0 to 1, resize to 1 x 1 x seq_len
+        # Normalize scores to weights in range 0 to 1, resize to 1 x 1 x seq_len
         return F.softmax(attn_scores).unsqueeze(0).unsqueeze(0)
 
     def attend(self,hidden_size, encoder_output):
@@ -136,7 +138,6 @@ class DecoderRNN(nn.Module):
         super(DecoderRNN, self).__init__()
         
         # Keep parameters for reference
- #       self.attn_model = attn_model
         self.hidden_size = hidden_size
         self.output_size = output_size
         self.n_layers = n_layers
@@ -178,65 +179,23 @@ class DecoderRNN(nn.Module):
 
 
 class EncDecRNN(nn.Module):
-    def __int__(self, input_size, hidden_size, n_layers, dropout_p = dropout_p):
- 
- #   def __init__(self):   #, gentype, vocab, beamwidth, overgen, vocab_size,
- #                hidden_size, batch_size, da_sizes): 
-
+    def __init__(self, input_size, hidden_size, n_layers, dropout_p = dropout_p):
         super(EncDecRNN, self).__init__()
         self.input_size = input_size
         self.hidden_size = hidden_size
+        
         self.n_layers = n_layers
         self.dropout_p = dropout_p
         
-        self.encoder = EncoderRNN(self.input_size, self.hidden_size, self.n_layers)
-        self.decoder = DecoderRNN(self.hidden_size, self.output_size, self.n_layers, self.dropout_p)
+        self.encoder = EncoderRNN(self.input_size, self.hidden_size)  
+        self.decoder = DecoderRNN(self.input_size, self.hidden_size, self.n_layers, self.dropout_p)
   
 
-        self.da = self.dfs[1]-self.dfs[0]   
-        self.ds = self.dfs[3]-self.dfs[2]
-        self.dv = self.dfs[4]-self.dfs[3]
-
-        self.init_params()
-
-    def init_params(self):
-        #word embedding weight matrix   - where does di and dh come from??
-        #self.di and self.dh give the dimensions of the tensor
-        self.Wemb = 0.3 * np.random.uniform(-1.0,1.0, (self.di, self.dh)).astype(float)
-        self.Wemb = torch.from_numpy(self.Wemb)
-        #torch.rand.uniform(-1.0,1.0,(self.di, self.dh)).astype(floatX) *0.3
-
-        #DA embedding
-        #need to find a way to get around using numpy first
-        self.Wah = 0.3 * np.random.uniform(-1.0,1.0,(self.da+1, self.dh)).astype(float)
-        self.Wah = torch.from_numpy(self.Wah)
-        self.Wsh = 0.3 * np.random.uniform(-1.0,1.0,(self.ds+1, self.dh)).astype(float)
-        self.Wsh = torch.from_numpy(self.Wsh)
-        self. Wvh = 0.3 * np.random.uniform(-1.0,1.0,(self.dv+1, self.dh)).astype(float)
-        self.Wvh = torch.from_numpy(self.Wvh)
-        
-        #attention weights
-        self.Wha = 0.3 * np.random.uniform(-1.0,1.0,(self.dh*3, self.dh)).astype(float)
-        self.Wha = torch.from_numpy(self.Wha)
-        self.Vha = 0.3 * np.random.uniform(-1.0,1.0,(self.dh)).astype(float)
-        self.Vha = torch.from_numpy(self.Vha)
-
-        #LSTM gate matrix
-        self.Wgate = 0.3 * np.random.uniform(-1.0,1.0,(self.dh*3, self.dh)*4).astype(float)
-        self.Wgate = torch.from_numpy(self.Wgate)
-
-        #hidden to output matrix
-        self.Who = 0.3 * np.random.uniform(-1.0,1.0,(self.dh, self.di)).astype(float)
-        self.Who = torch.from_numpy(self.Who)
-
-        #initialize the hidden state and cell
-        self.h0 = torch.zeros(self.db,self.dh, dtype = float)
-        self.c0 = torch.zeros(self.db,self.dh, dtype = float)
-
-
-    def forward(self, input_size, hidden_size, n_layers, dropout_p = dropout_p):
-        enc_output = self.encoder(input_size, hidden_size, n_layers)
-        dec_output, dec_context, dec_hidden, dec_attn_weights = self.decoder(hidden_size, output_size, n_layers, dropout_p=dropout_p)
+    def forward(self):
+        #call EncoderRNN
+        enc_hidden = self.encoder(self.input_size, self.hidden_size, self.n_layers)
+        #call DecoderRNN
+        dec_output, dec_context, dec_hidden, dec_attn_weights = self.decoder(enc_hidden, hidden_size, n_layers, dropout_p=dropout_p)
         return dec_output, dec_context, dec_hidden, dec_attn_weights
 
    
