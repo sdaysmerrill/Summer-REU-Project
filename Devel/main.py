@@ -3,11 +3,11 @@
 ##             CCT REU Louisiana State University                  ##
 #####################################################################
 
-
+import torch
 import argparse
-from data import *
-from model import *
-from train import *
+from data import NetModel
+import model
+from train import trainNet
 #from test import testNet
 
 
@@ -37,17 +37,15 @@ if __name__ == '__main__':
         
     else:
        config = None
-
-    dmodel = Model()  #Model() is the class in data.py that deals with data processing
-    call_model = dmodel.initNet(config)
+       
     
-    #data loading
-    data_load = Model(config, opts = None)
+    #create_model
+    net_model = NetModel(config, opts = None)
+    
 
-    train = Train(dmodel)  #Train() is the class in train.py
     if args.mode == 'train':
         print("Begin training")
-        train.trainNet()  #call the function train() in the class Train()
+        trainNet(net_model)  
         
     elif args.mode == 'test':
         print("Start testing")
