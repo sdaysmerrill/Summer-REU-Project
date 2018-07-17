@@ -18,19 +18,20 @@ from torch import optim
 import torch.nn.functional as F
 
 #from NNGenerator import *
-from model import EncDecRNN
+from model import EncoderRNN
+from model import DecoderRNN
 from loader.DataReader import *
 from loader.GentScorer import *
 
 from ConfigParser import SafeConfigParser
 
 #USE_CUDA = False
-hidden_size = 500
+##hidden_size = 500
 n_layers = 2
 dropout_p = 0.05
-MAX_LENGTH = 10
+##MAX_LENGTH = 10
 
-class Model(object):
+class NetModel(object):
 
     #######################################################################
     # all variables that needs to be save and load from model file, indexed 
@@ -141,14 +142,15 @@ class Model(object):
                 print '\tsetting recurrent generator, type: %s ...' % \
                         self.gentype
                 #call the EncDecRNN model in model.py with parameters input_size, hidden_size, n_layers, and dropout_p
-            self.model =  EncDecRNN(self.di,self.dh,n_layers, dropout_p) #NNGenerator(self.gentype, self.reader.vocab,
+            self.emodel =  EncoderRNN(self.di,self.dh,n_layers) #NNGenerator(self.gentype, self.reader.vocab,
  #                   self.beamwidth, self.overgen,
 #                    self.di, self.dh, self.batch, self.reader.dfs, 
 #                    self.obj, self.mode, self.decode, 
-#                    self.reader.tokenMap2Indexes()) 
+#                    self.reader.tokenMap2Indexes())
+            self.dmodel = DecoderRNN(self.di, self.dh, n_layers, dropout_p)
             # setting word vectors
  #           if self.wvecfile!='None':
-#                self.model.setWordVec(self.reader.readVecFile(
+#                self.emodel.setWordVec(self.reader.readVecFile(
 #                    self.wvecfile,self.reader.vocab))
 #            if self.debug:
 #                print '\t\tnumber of parameters : %8d' % \
@@ -157,7 +159,7 @@ class Model(object):
 
 
     def setupDelegates(self):
-            # initialise data reader
+            # initialize data reader
             self.reader = DataReader(self.seed, self.domain, self.obj,
                     self.vocabfile, self.trainfile, self.validfile, self.testfile,
                     self.percentage, self.verbose, lexCutoff=4)
