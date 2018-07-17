@@ -4,7 +4,12 @@
 #####################################################################
 
 
-from data import *
+import data
+
+
+import torch
+import torch.nn as nn
+from torch.autograd import Variable
 
 
 MAX_LENGTH = 10
@@ -15,47 +20,49 @@ dropout_p = 0.05
 #still need to incorporate the slot value pairs with embedding
 #the parameters are numbers (similar to the tutorial) but we need words so we can use setWordVec
 class EncoderRNN(nn.Module):
-    def __init__(self, input_size, hidden_size, n_layers=2):
+    def __init__(self, input_variable, hidden_size, n_layers):
         super(EncoderRNN, self).__init__()
         #defined in config file
-        self.input_size = input_size    #748
+        self.input_variable = input_variable    #748 - actually this is how many words in vocab - I just want the length of input_variable
         self.hidden_size = hidden_size  #80 
         self.n_layers = n_layers
-        print(self.input_size)
-        print(self.hidden_size)
 
- #       self.embedding = nn.Embedding(self.input_size, self.hidden_size)
-#        self.gru = nn.GRU(hidden_size, hidden_size, n_layers)
-        
-    def forward(self):  
-         
-        input_emb = setWordVec(self.input_size)  #however input_size is a number not a word
-        hidden_emb = setWordVec(self.hidden_size)
-        
-        return output, hidden
+    def setWordVec(self, word2vec):   #but input_size is a number not a word
+        self.Wemb_np = self.Wemb.get_value()
+        for w,v in word2vec.iteritems():
+            self.Wemb_np[w,:] = v
+        self.Wemb.set_value(self.Wemb_np)
+
+    def _emb(self, a, s, v):
+        a_emb = T.sum(self.Wah[a,:],axis=0)
+        s_emb = self.Wsh[s,:]
+        v_emb = self.Wvh[v,:]
+        sv_emb= s_emb + v_emb
+        return a_emb, sv_emb
+
+    def forward(self, word_inputs, hidden):
+        # Note: we run this all at once (over the whole input sequence)
+        seq_len = len(word_inputs)
+        embedded = self.setWordVec(word_inputs).view(seq_len, 1, -1)
+ #       output, hidden = self.gru(embedded, hidden)
+        return output, hidden       
 
     def init_hidden(self):
         hidden = Variable(torch.zeros(self.n_layers, 1, self.hidden_size))
         if USE_CUDA: hidden = hidden.cuda()
         return hidden
 
-    def setWordVec(self, word2vec):   #but input_size is a number not a word
-        self.input_np = self.input_size.get_value()
-        for w,v in word2vec.iteritems():
-            self.input_np[w,:] = v
-        self.input_size.set_value(self.input_np)
-
- #   def _emb():
+    
     
  
 #still need to incorporate this into the model in the decoder
 class LSTM(nn.Module):
     def __init__(self, input_size, hidden_size, embed_size):  
         super(LSTM, self).__init__()
-
+        self.input_size = input_size
         self.hidden_size = hidden_size
         # input embedding
-        self.encoder = EncoderRNN(input_size, hidden_size)  
+ #       self.encoder = EncoderRNN(self.input_size, self.hidden_size) 
         # lstm weights
         self.weight_fm = nn.Linear(hidden_size, hidden_size)
         self.weight_im = nn.Linear(hidden_size, hidden_size)
@@ -69,7 +76,7 @@ class LSTM(nn.Module):
         self.weight_mh = nn.Linear(hidden_size, hidden_size)
         self.weight_mx = nn.Linear(embed_size, hidden_size)
         # decoder
-        self.decoder = DecoderRNN(hidden_size, output_size)
+ #       self.decoder = DecoderRNN(self.input_size, self.hidden_size, n_layers = 2, dropout_p = dropout_p)
 
 
     def forward(self, inp, h_0, c_0):
@@ -94,9 +101,12 @@ class LSTM(nn.Module):
 
         return out, hx, cx
 
-    def init_hidden(self):
-        h_0 = Variable(torch.zeros(1, self.hidden_size)).cuda()
-        c_0 = Variable(torch.zeros(1, self.hidden_size)).cuda()
+    def init_hidden(self):   #do I need another init_hidden?? - well I need to initialize the context vector
+        h_0 = Variable(torch.zeros(1, self.hidden_size))
+        c_0 = Variable(torch.zeros(1, self.hidden_size))
+        if USE_CUDA:
+            h_0 = Variable(torch.zeros(1, self.hidden_size)).cuda()
+            c_0 = Variable(torch.zeros(1, self.hidden_size)).cuda()
         return h_0, c_0
 
         
@@ -134,7 +144,7 @@ class WenAttn(nn.Module):
    
     
 class DecoderRNN(nn.Module):
-    def __init__(self, hidden_size, output_size, n_layers, dropout_p):   #n_layers = 1, dropout_p=0.1
+    def __init__(self, hidden_size, output_size, n_layers, dropout_p):    
         super(DecoderRNN, self).__init__()
         
         # Keep parameters for reference
@@ -146,9 +156,10 @@ class DecoderRNN(nn.Module):
         # Define layers
         self.embedding = nn.Embedding(output_size, hidden_size)
         #change to LSTM not GRU
-        self.gru = nn.GRU(hidden_size * 2, hidden_size, n_layers, dropout=dropout_p)
+        self.lstm = LSTM(hidden_size * 2, hidden_size, n_layers) #, dropout=dropout_p)
         self.out = nn.Linear(hidden_size * 2, output_size)
-        self.softmax = nn.LogSoftmax(dim=1)
+ #       self.softmax = nn.LogSoftmax(dim=1)
+        self.cross_entrophy = nn.CrossEntropyLoss()
 
         self.attn = WenAttn(hidden_size)
      
@@ -162,7 +173,7 @@ class DecoderRNN(nn.Module):
         # Combine embedded input word and last context, run through RNN
         decoder_input = torch.cat((word_embedded, last_context.unsqueeze(0)), 2)
         #change to LSTM
-        decoder_output, hidden = self.gru(decoder_input, last_hidden)
+        decoder_output, hidden = self.lstm(decoder_input, last_hidden)
 
         
         # Calculate attention from current RNN state and all encoder outputs; apply to encoder outputs
@@ -172,30 +183,30 @@ class DecoderRNN(nn.Module):
         # Final output layer (next word prediction) using the RNN hidden state and context vector
         decoder_output = decoder_output.squeeze(0) # S=1 x B x N -> B x N
         context = context.squeeze(1)       # B x S=1 x N -> B x N
-        output = self.softmax(self.out(torch.cat((decoder_output, context), 1)))
+        output = self.cross_entrophy(self.out(torch.cat((decoder_output, context), 1)))
         
         # Return final output, hidden state, and attention weights (for visualization)
         return output, context, hidden, attn_weights
 
 
-class EncDecRNN(nn.Module):
-    def __init__(self, input_size, hidden_size, n_layers, dropout_p = dropout_p):
-        super(EncDecRNN, self).__init__()
-        self.input_size = input_size
-        self.hidden_size = hidden_size
+#class EncDecRNN(nn.Module):
+#    def __init__(self, input_size, hidden_size, n_layers, dropout_p = dropout_p):
+#        super(EncDecRNN, self).__init__()
+#        self.input_size = input_size
+#        self.hidden_size = hidden_size
         
-        self.n_layers = n_layers
-        self.dropout_p = dropout_p
+#        self.n_layers = n_layers
+#        self.dropout_p = dropout_p
         
-        self.encoder = EncoderRNN(self.input_size, self.hidden_size)  
-        self.decoder = DecoderRNN(self.input_size, self.hidden_size, self.n_layers, self.dropout_p)
+#        self.encoder = EncoderRNN(self.input_size, self.hidden_size)  
+#        self.decoder = DecoderRNN(self.input_size, self.hidden_size, self.n_layers, self.dropout_p)
   
 
-    def forward(self):
+#    def forward(self):
         #call EncoderRNN
-        enc_hidden = self.encoder(self.input_size, self.hidden_size, self.n_layers)
+#        enc_hidden = self.encoder(self.input_size, self.hidden_size, self.n_layers)
         #call DecoderRNN
-        dec_output, dec_context, dec_hidden, dec_attn_weights = self.decoder(enc_hidden, hidden_size, n_layers, dropout_p=dropout_p)
-        return dec_output, dec_context, dec_hidden, dec_attn_weights
+#        dec_output, dec_context, dec_hidden, dec_attn_weights = self.decoder(enc_hidden, hidden_size, n_layers, dropout_p=dropout_p)
+#        return dec_output, dec_context, dec_hidden, dec_attn_weights
 
    
