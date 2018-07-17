@@ -4,58 +4,56 @@
 #####################################################################
 
 
-from model import EncDecRNN
-from data import Model
+from model import EncoderRNN
+from model import DecoderRNN
+import data
 
 import random
 import time
 import math
 import torch.nn as nn
 from torch import optim
+from torch.autograd import Variable
 
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 
-hidden_size = 500
-n_layers = 2
-dropout_p = 0.05
-MAX_LENGTH = 10
+#these are from the tutorial - going to be removed later
+#hidden_size = 500
+#n_layers = 2
+#dropout_p = 0.05
+#MAX_LENGTH = 10
 
 
 
-class Train(Model):
-        def __init__(self, dmodel):
- #               super(Model, self).__init__()
-                self.encdecrnn = dmodel.model #EncDecRNN(Model.initNet, Model.initNet.self.dh, n_layers, dropout_p)
-                print(self.encdecrnn)
-        def trainNet(self):    #input_variable, target_variable, encdec, encdec_optimizer, criterion, max_length=MAX_LENGTH):
-
+def trainNet(NetModel):    #input_variable, target_variable, encdec, encdec_optimizer, criterion, max_length=MAX_LENGTH):
+ 
                 ######## training RNN generator with early stopping ######### 
-                if dmodel.debug:
-                    print 'start network training ...'
-                epoch = 0
-                lr_divide = 0
-                llr_divide= -1
+        if NetModel.debug:
+                print 'start network training ...'
+        epoch = 0
+        lr_divide = 0
+        llr_divide= -1
 
-                while True:
+        while True:
                     # training phase
-                    epoch += 1
-                    tic = time.time()
-                    wcn, num_sent, train_logp = 0.0,0.0,0.0
-                    while True:
+                epoch += 1
+                tic = time.time()
+                wcn, num_sent, train_logp = 0.0,0.0,0.0
+                while True:
                         # read data point
-                        data = dmodel.reader.read(mode='train',batch=dmodel.batch)
+                        data = NetModel.reader.read(mode='train',batch=NetModel.batch)
                         if data==None:
-                            break
+                                break
                         # set regularization , once per ten times
-                        reg = 0 if random.randint(0,9)==5 else dmodel.beta  #half the time reg = 0
+                        reg = 0 if random.randint(0,9)==5 else NetModel.beta  #half the time reg = 0
                         # unfold data point
                         a,sv,s,v,words, _, _,cutoff_b,cutoff_f = data
-                        print(a)  #[[7]]
-                        print(sv) #[[82 101]]
-                        print(s)  #[[24 31]]
-                        print(v)  #[[1 1]]
-                        print(words)  #[[1]
+ #                       print(a)  #[[7]]
+#                        print(sv) #[[82 101]]
+#                        print(s)  #[[24 31]]
+#                        print(v)  #[[1 1]]
+#                        print(words)          #[[1]
                                       #[ 5]
                                       #[ 2]
                                       #[ 4]
@@ -68,60 +66,138 @@ class Train(Model):
                                       #[ 13]
                                       #[ 1]]
                         # train net using current example 
-                        train_logp += dmodel.model.train( a,sv,s,v,words,
-                                cutoff_f, cutoff_b, dmodel.lr, reg)   #too many arguments error
+ #                       train_logp += NetModel.model.train( a,sv,s,v,words,
+#                                cutoff_f, cutoff_b, NetModel.lr, reg)   #too many arguments error
                         # count words and sents 
-                        wcn += np.sum(cutoff_f-1)
-                        num_sent+=cutoff_b
+#                        wcn += np.sum(cutoff_f-1)
+#                        num_sent+=cutoff_b
+
+
+
+#this is our training
+                # Zero gradients of both optimizers
+ #                       encoder_optimizer = optim.SGD(NetModel.emodel.parameters(), lr = NetModel.lr)
+#                        encoder_optimizer.zero_grad()
+                        decoder_optimizer = optim.SGD(NetModel.dmodel.parameters(), lr = NetModel.lr)
+                        decoder_optimizer.zero_grad()
+                        loss = 0 # Added onto for each word
+
+                    # Get size of input and target sentences - figure out how to get these
+                        input_length = len(words)  #this just holds the string data/original/...
+                        print(words)
+                        print(input_length)
+ #                       target_length = target_variable.size()[0]
+
+                    # Run words through encoder
+#                        encoder = EncoderRNN()
+                        encoder_hidden = NetModel.emodel.init_hidden()
+                        #figure out why this is not recursive
+                        
+ #                       encoder_outputs, encoder_hidden = NetModel.emodel(input_variable, encoder_hidden)
+
+                        for ei in range(input_length):
+                                encoder_output, encoder_hidden = NetModel.emodel(words, encoder_hidden)
+                                
+
+
+                    
+                    # Prepare input and output variables
+                        decoder_input = Variable(torch.LongTensor([[SOS_token]]))
+                        decoder_context = Variable(torch.zeros(1, NetModel.dmodel.hidden_size))
+                        decoder_hidden = encoder_hidden # Use last hidden state from encoder to start decoder
+                        if USE_CUDA:
+                                decoder_input = decoder_input.cuda()
+                                decoder_context = decoder_context.cuda()
+
+                    # Choose whether to use teacher forcing
+ #                       use_teacher_forcing = random.random() < teacher_forcing_ratio
+#                        if use_teacher_forcing:
+                        
+                        # Teacher forcing: Use the ground-truth target as the next input
+#                                for di in range(target_length):
+#                                    decoder_output, decoder_context, decoder_hidden, decoder_attention = decoder(decoder_input, decoder_context, decoder_hidden, encoder_outputs)
+#                                    loss += criterion(decoder_output[0], target_variable[di])
+#                                    decoder_input = target_variable[di] # Next target is next input
+
+#                        else:
+                        # Without teacher forcing: use network's own prediction as the next input
+
+                        #do not use teacher forcing
+                        for di in range(target_length):
+                                decoder_output, decoder_context, decoder_hidden, decoder_attention = NetModel.dmodel(decoder_input, decoder_context, decoder_hidden, encoder_hidden)
+                                loss += criterion(decoder_output[0], target_variable[di])
+                            
+                            # Get most likely word index (highest value) from output
+                                topv, topi = decoder_output.data.topk(1)
+                                ni = topi[0][0]
+                            
+                                decoder_input = Variable(torch.LongTensor([[ni]])) # Chosen word is next input
+                                if USE_CUDA: decoder_input = decoder_input.cuda()
+
+                            # Stop at end of sentence (not necessary when using known targets)
+                                if ni == EOS_token: break
+
+                    # Backpropagation
+                        loss.backward()
+                        torch.nn.utils.clip_grad_norm(NetModel.emodel.parameters(), clip)
+                        torch.nn.utils.clip_grad_norm(NetModel.dmodel.parameters(), clip)
+                        encoder_optimizer.step()
+                        decoder_optimizer.step()
+                    
+                 #   return loss.data[0] / target_length
+
+
+
+
                         # log message 
-                        if dmodel.debug and num_sent%100==0:
-                            print 'Finishing %8d sent in epoch %3d\r' % \
-                                    (num_sent,epoch),
-                            sys.stdout.flush()
+                        if NetModel.debug and num_sent%100==0:
+                                print 'Finishing %8d sent in epoch %3d\r' % \
+                                        (num_sent,epoch),
+                                sys.stdout.flush()
                     # log message
-                    sec = (time.time()-tic)/60.0
-                    if dmodel.debug:
+                sec = (time.time()-tic)/60.0
+                if NetModel.debug:
                         print 'Epoch %3d, Alpha %.6f, TRAIN entropy:%.2f, Time:%.2f mins,' %\
-                                (epoch, dmodel.lr, -train_logp/log10(2)/wcn, sec),
-                        sys.stdout.flush()
+                                (epoch, NetModel.lr, -train_logp/log10(2)/wcn, sec),
+                sys.stdout.flush()
 
                     # validation phase
-                    dmodel.valid_logp, wcn = 0.0,0.0
-                    while True:
+#                NetModel.valid_logp, wcn = 0.0,0.0
+#                while True:
                         # read data point
-                        data = dmodel.reader.read(mode='valid',batch=dmodel.batch)
-                        if data==None:
-                            break
+#                        data = NetModel.reader.read(mode='valid',batch=NetModel.batch)
+#                        if data==None:
+#                                break
                         # unfold data point
-                        a,sv,s,v,words, _, _,cutoff_b,cutoff_f = data
+#                        a,sv,s,v,words, _, _,cutoff_b,cutoff_f = data
                         # validating
-                        dmodel.valid_logp += dmodel.model.test( a,sv,s,v,words,
-                                cutoff_f, cutoff_b )
-                        wcn += np.sum(cutoff_f-1)
+ #               NetModel.valid_logp += NetModel.model.test( a,sv,s,v,words,
+#                        cutoff_f, cutoff_b )
+#                wcn += np.sum(cutoff_f-1)
                     # log message
-                    if dmodel.debug:
-                        print 'VALID entropy:%.2f'%-(dmodel.valid_logp/log10(2)/wcn)
+#                if NetModel.debug:
+#                        print 'VALID entropy:%.2f'%-(NetModel.valid_logp/log10(2)/wcn)
 
                     # decide to throw/keep weights
-                    if dmodel.valid_logp < dmodel.llogp:
-                        dmodel.updateTheanoParams()
-                    else:
-                        dmodel.updateNumpyParams()
-                    dmodel.saveNet()
+#                if NetModel.valid_logp < NetModel.llogp:
+#                        NetModel.updateTheanoParams()
+#                else:
+#                        NetModel.updateNumpyParams()
+#                        NetModel.saveNet()
                     # learning rate decay
-                    if lr_divide>=dmodel.lr_divide:
-                        dmodel.lr *= dmodel.lr_decay
+#                if lr_divide>=NetModel.lr_divide:
+#                        NetModel.lr *= NetModel.lr_decay
                     # early stopping
-                    if dmodel.valid_logp*dmodel.min_impr<dmodel.llogp:
-                        if lr_divide<dmodel.lr_divide:
-                            dmodel.lr *= dmodel.lr_decay
-                            lr_divide += 1
-                        else:
-                            dmodel.saveNet()
-                            print 'Training completed.'
-                            break
+#                if NetModel.valid_logp*NetModel.min_impr<NetModel.llogp:
+#                        if lr_divide<NetModel.lr_divide:
+#                                NetModel.lr *= NetModel.lr_decay
+#                                lr_divide += 1
+#                        else:
+#                                NetModel.saveNet()
+#                                print 'Training completed.'
+#                                break
                     # set last epoch objective value
-                    dmodel.llogp = dmodel.valid_logp
+#                NetModel.llogp = NetModel.valid_logp
 
 
  #       def as_minutes(s):
@@ -186,9 +262,9 @@ class Train(Model):
 #        plt.figure()
 #        plt.plot(plot_losses)
 
-dmodel = Model()
-call_model = dmodel.initNet('encdec.cfg')
-training = Train(dmodel)
+#dmodel = Model()
+#call_model = dmodel.initNet('encdec.cfg')
+#training = Train(dmodel)
 
 
 
