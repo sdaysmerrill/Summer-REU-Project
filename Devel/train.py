@@ -76,8 +76,8 @@ def trainNet(NetModel):    #input_variable, target_variable, encdec, encdec_opti
 
 #this is our training
                 # Zero gradients of both optimizers
- #                       encoder_optimizer = optim.SGD(NetModel.emodel.parameters(), lr = NetModel.lr)
-#                        encoder_optimizer.zero_grad()
+                        encoder_optimizer = optim.SGD(NetModel.emodel.parameters(), lr = NetModel.lr)
+                        encoder_optimizer.zero_grad()
                         decoder_optimizer = optim.SGD(NetModel.dmodel.parameters(), lr = NetModel.lr)
                         decoder_optimizer.zero_grad()
                         loss = 0 # Added onto for each word
