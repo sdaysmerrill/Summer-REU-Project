@@ -18,7 +18,7 @@ dropout_p = 0.05
 
 #encoder is still not quite right
 #still need to incorporate the slot value pairs with embedding
-#the parameters are numbers (similar to the tutorial) but we need words so we can use setWordVec
+
 class EncoderRNN(nn.Module):
     def __init__(self, input_variable, hidden_size, n_layers):
         super(EncoderRNN, self).__init__()
@@ -26,8 +26,10 @@ class EncoderRNN(nn.Module):
         self.input_variable = input_variable    #748 - actually this is how many words in vocab - I just want the length of input_variable
         self.hidden_size = hidden_size  #80 
         self.n_layers = n_layers
+        
+        self.myparameter = nn.Parameter(self.input_variable) #needs to be a tensor not int value
 
-    def setWordVec(self, word2vec):   #but input_size is a number not a word
+    def setWordVec(self, word2vec):   
         self.Wemb_np = self.Wemb.get_value()
         for w,v in word2vec.iteritems():
             self.Wemb_np[w,:] = v
