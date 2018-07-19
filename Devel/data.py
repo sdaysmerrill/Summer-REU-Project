@@ -18,7 +18,6 @@ from torch import optim
 import torch.nn.functional as F
 
 #from NNGenerator import *
-from model import EncoderRNN
 from model import DecoderRNN
 from train import trainNet
 
@@ -126,6 +125,35 @@ class NetModel(object):
             # network size
             self.di = len(self.reader.vocab)   #length of input - input_size
             # logp for validation set
+
+            self.dfs = self.reader.dfs                  #[0, 15, 149, 191, 200] - dimension of feature size
+
+            self.da = self.dfs[1] - self.dfs[0]   #15
+            self.ds = self.dfs[3] - self.dfs[2]   #42
+            self.dv = self.dfs[4] - self.dfs[3]   #9
+
+            #define random weighted matrices
+            self.Wah = 0.3 * torch.randn(self.da+1, self.dh, dtype = torch.float64)
+            self.Wsh = 0.3 * torch.randn(self.ds+1, self.dh, dtype = torch.float64)
+            self.Wvh = 0.3 * torch.randn(self.dv+1, self.dh, dtype = torch.float64)
+            self.Wemb = 0.3 * torch.randn(self.di, self.dh, dtype = torch.float64)
+
+            self.Wah[self.da,:] = 0.0
+            self.Wsh[self.ds,:] = 0.0
+            self.Wvh[self.dv,:] = 0.0
+
+            #set boundaries for the weighted matrices
+            self.Wah = torch.clamp(self.Wah, min = -1.0, max = 1.0)
+            self.Wsh = torch.clamp(self.Wsh, min = -1.0, max = 1.0)
+            self.Wvh = torch.clamp(self.Wvh, min = -1.0, max = 1.0)
+            self.Wemb = torch.clamp(self.Wemb, min = -1.0, max = 1.0) 
+
+        #specify emodel's parameters for optimization
+ #       self.Wah_parameter = nn.Parameter(self.Wah)
+ #       self.Wsh_parameter = nn.Parameter(self.Wsh)
+ #       self.Wvh_parameter = nn.Parameter(self.Wvh)
+ #       self.Wemb_parameter = nn.Parameter(self.Wemb)
+            
             self.valid_logp = 0.0  
             # start setting networks 
             self.initModel()
@@ -144,7 +172,7 @@ class NetModel(object):
                 print '\tsetting recurrent generator, type: %s ...' % \
                         self.gentype
                 #call the EncDecRNN model in model.py with parameters input_size, hidden_size, n_layers, and dropout_p
-            self.emodel =  EncoderRNN(self.di,self.dh,self.reader.dfs, n_layers) #NNGenerator(self.gentype, self.reader.vocab,
+ #           self.emodel =  EncoderRNN(self.di,self.dh,self.reader.dfs, n_layers) #NNGenerator(self.gentype, self.reader.vocab,
  #                   self.beamwidth, self.overgen,
 #                    self.di, self.dh, self.batch, self.reader.dfs, 
 #                    self.obj, self.mode, self.decode, 
