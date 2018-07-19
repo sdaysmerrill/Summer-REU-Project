@@ -17,9 +17,13 @@ from torch.autograd import Variable
 from torch import optim
 import torch.nn.functional as F
 
+import theano
+import numpy as np
+
 #from NNGenerator import *
 from model import DecoderRNN
 from train import trainNet
+from model import setWordVec
 
 from loader.DataReader import *
 from loader.GentScorer import *
@@ -136,7 +140,7 @@ class NetModel(object):
             self.Wah = 0.3 * torch.randn(self.da+1, self.dh, dtype = torch.float64)
             self.Wsh = 0.3 * torch.randn(self.ds+1, self.dh, dtype = torch.float64)
             self.Wvh = 0.3 * torch.randn(self.dv+1, self.dh, dtype = torch.float64)
-            self.Wemb = 0.3 * torch.randn(self.di, self.dh, dtype = torch.float64)
+            self.Wemb = theano.shared(0.3 * np.random.uniform(-1.0,1.0,(self.di, self.dh)).astype(theano.config.floatX))
 
             self.Wah[self.da,:] = 0.0
             self.Wsh[self.ds,:] = 0.0
@@ -146,7 +150,19 @@ class NetModel(object):
             self.Wah = torch.clamp(self.Wah, min = -1.0, max = 1.0)
             self.Wsh = torch.clamp(self.Wsh, min = -1.0, max = 1.0)
             self.Wvh = torch.clamp(self.Wvh, min = -1.0, max = 1.0)
-            self.Wemb = torch.clamp(self.Wemb, min = -1.0, max = 1.0) 
+
+            #lstm weighted matrices
+            self.Wgate = 0.3 * torch.randn(self.dh * 3, self.dh * 4, dtype = torch.float64)
+            self.Who = 0.3 * torch.randn(self.dh, self.di, dtype = torch.float64)
+
+            #set boundaries
+            self.Wgate = torch.clamp(self.Wgate, min = -1.0, max = 1.0)
+            self.Who = torch.clamp(self.Who, min = -1.0, max = 1.0)
+
+            #initialize hidden layer and cell state
+            self.h0 = torch.zeros(self.batch, self.dh)
+            self.c0 = torch.zeros(self.batch, self.dh)
+            
 
         #specify emodel's parameters for optimization
  #       self.Wah_parameter = nn.Parameter(self.Wah)
@@ -177,11 +193,13 @@ class NetModel(object):
 #                    self.di, self.dh, self.batch, self.reader.dfs, 
 #                    self.obj, self.mode, self.decode, 
 #                    self.reader.tokenMap2Indexes())
-            self.dmodel = DecoderRNN(self.di, self.dh, n_layers, dropout_p)
+            if self.wvecfile!='None':
+                setWordVec(self, self.reader.readVecFile(
+                    self.wvecfile,self.reader.vocab))
+
+            self.dmodel = DecoderRNN(self.di, self.dh,self.Wgate, self.Who, self.Wemb, n_layers, dropout_p)
             # setting word vectors
- #           if self.wvecfile!='None':
-#                self.emodel.setWordVec(self.reader.readVecFile(
-#                    self.wvecfile,self.reader.vocab))
+            
 #            if self.debug:
 #                print '\t\tnumber of parameters : %8d' % \
 #                        self.model.numOfParams()
