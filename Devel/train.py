@@ -3,8 +3,7 @@
 ##             CCT REU Louisiana State University                  ##
 #####################################################################
 
-
-from model import EncoderRNN
+from model import embedding
 from model import DecoderRNN
 import data
 
@@ -50,11 +49,11 @@ def trainNet(NetModel):    #input_variable, target_variable, encdec, encdec_opti
                         # unfold data point
                         a,sv,s,v,words, _, _,cutoff_b,cutoff_f = data
 
-                        tensor_a = torch.from_numpy(a)
-                        tensor_sv = torch.from_numpy(sv)
-                        tensor_s = torch.from_numpy(s)
-                        tensor_v = torch.from_numpy(v)
-                        tensor_words = torch.from_numpy(words)
+ #                       tensor_a = torch.from_numpy(a)
+#                        tensor_sv = torch.from_numpy(sv)
+#                        tensor_s = torch.from_numpy(s)
+#                        tensor_v = torch.from_numpy(v)
+#                        tensor_words = torch.from_numpy(words)
 
                         
  #                       print("(debug) number of rows in tensor_a = ", tensor_a.size().size[0]) 
@@ -92,7 +91,7 @@ def trainNet(NetModel):    #input_variable, target_variable, encdec, encdec_opti
                         loss = 0 # Added onto for each word
 
                     # Get size of input and target sentences - figure out how to get these
-                        input_length = len(tensor_words)  #this just holds the string data/original/...
+                        input_length = len(words)  #this just holds the string data/original/...
 #                        print(tensor_words)
 #                        print(input_length)
  #                       target_length = target_variable.size()[0]
@@ -102,7 +101,7 @@ def trainNet(NetModel):    #input_variable, target_variable, encdec, encdec_opti
 #                        encoder_hidden = NetModel.emodel.init_hidden()
                         #figure out why this is not recursive
                         
-                        a_emb, sv_emb = NetModel.emodel.unroll(tensor_a, tensor_s, tensor_v, tensor_words, cutoff_f, cutoff_b)
+                        a_emb, sv_emb, words_emb = embedding(NetModel, a, s, v, words)
 
  #                       for ei in range(input_length):
 #                                encoder_output, encoder_hidden = NetModel.emodel(tensor_words, encoder_hidden)
@@ -133,7 +132,7 @@ def trainNet(NetModel):    #input_variable, target_variable, encdec, encdec_opti
 
                         #do not use teacher forcing
                         for di in range(input_length):
-                                decoder_output, decoder_context, decoder_hidden, decoder_attention = NetModel.dmodel(decoder_input, decoder_context, a_emb, sv_emb)
+                                decoder_output, decoder_context, decoder_hidden, decoder_attention = NetModel.dmodel(a_emb, sv_emb, words_emb)
                                 loss += criterion(decoder_output[0], tensor_words[di])
                             
                             # Get most likely word index (highest value) from output
