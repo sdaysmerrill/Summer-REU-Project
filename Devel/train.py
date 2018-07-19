@@ -11,6 +11,7 @@ import data
 import random
 import time
 import math
+import torch
 import torch.nn as nn
 from torch import optim
 from torch.autograd import Variable
@@ -24,10 +25,9 @@ import matplotlib.ticker as ticker
 #dropout_p = 0.05
 #MAX_LENGTH = 10
 
-
+USE_CUDA = False
 
 def trainNet(NetModel):    #input_variable, target_variable, encdec, encdec_optimizer, criterion, max_length=MAX_LENGTH):
- 
                 ######## training RNN generator with early stopping ######### 
         if NetModel.debug:
                 print 'start network training ...'
@@ -49,6 +49,15 @@ def trainNet(NetModel):    #input_variable, target_variable, encdec, encdec_opti
                         reg = 0 if random.randint(0,9)==5 else NetModel.beta  #half the time reg = 0
                         # unfold data point
                         a,sv,s,v,words, _, _,cutoff_b,cutoff_f = data
+
+                        tensor_a = torch.from_numpy(a)
+                        tensor_sv = torch.from_numpy(sv)
+                        tensor_s = torch.from_numpy(s)
+                        tensor_v = torch.from_numpy(v)
+                        tensor_words = torch.from_numpy(words)
+
+                        
+ #                       print("(debug) number of rows in tensor_a = ", tensor_a.size().size[0]) 
  #                       print(a)  #[[7]]
 #                        print(sv) #[[82 101]]
 #                        print(s)  #[[24 31]]
@@ -76,35 +85,35 @@ def trainNet(NetModel):    #input_variable, target_variable, encdec, encdec_opti
 
 #this is our training
                 # Zero gradients of both optimizers
-                        encoder_optimizer = optim.SGD(NetModel.emodel.parameters(), lr = NetModel.lr)
-                        encoder_optimizer.zero_grad()
+ #                       encoder_optimizer = optim.SGD(NetModel.emodel.parameters(), lr = NetModel.lr)
+#                        encoder_optimizer.zero_grad()
                         decoder_optimizer = optim.SGD(NetModel.dmodel.parameters(), lr = NetModel.lr)
                         decoder_optimizer.zero_grad()
                         loss = 0 # Added onto for each word
 
                     # Get size of input and target sentences - figure out how to get these
-                        input_length = len(words)  #this just holds the string data/original/...
-                        print(words)
-                        print(input_length)
+                        input_length = len(tensor_words)  #this just holds the string data/original/...
+#                        print(tensor_words)
+#                        print(input_length)
  #                       target_length = target_variable.size()[0]
 
                     # Run words through encoder
 #                        encoder = EncoderRNN()
-                        encoder_hidden = NetModel.emodel.init_hidden()
+#                        encoder_hidden = NetModel.emodel.init_hidden()
                         #figure out why this is not recursive
                         
- #                       encoder_outputs, encoder_hidden = NetModel.emodel(input_variable, encoder_hidden)
+                        a_emb, sv_emb = NetModel.emodel.unroll(tensor_a, tensor_s, tensor_v, tensor_words, cutoff_f, cutoff_b)
 
-                        for ei in range(input_length):
-                                encoder_output, encoder_hidden = NetModel.emodel(words, encoder_hidden)
+ #                       for ei in range(input_length):
+#                                encoder_output, encoder_hidden = NetModel.emodel(tensor_words, encoder_hidden)
                                 
 
 
-                    
+                        SOS_token = 0
                     # Prepare input and output variables
                         decoder_input = Variable(torch.LongTensor([[SOS_token]]))
                         decoder_context = Variable(torch.zeros(1, NetModel.dmodel.hidden_size))
-                        decoder_hidden = encoder_hidden # Use last hidden state from encoder to start decoder
+#                        decoder_hidden = encoder_hidden # Use last hidden state from encoder to start decoder
                         if USE_CUDA:
                                 decoder_input = decoder_input.cuda()
                                 decoder_context = decoder_context.cuda()
@@ -123,9 +132,9 @@ def trainNet(NetModel):    #input_variable, target_variable, encdec, encdec_opti
                         # Without teacher forcing: use network's own prediction as the next input
 
                         #do not use teacher forcing
-                        for di in range(target_length):
-                                decoder_output, decoder_context, decoder_hidden, decoder_attention = NetModel.dmodel(decoder_input, decoder_context, decoder_hidden, encoder_hidden)
-                                loss += criterion(decoder_output[0], target_variable[di])
+                        for di in range(input_length):
+                                decoder_output, decoder_context, decoder_hidden, decoder_attention = NetModel.dmodel(decoder_input, decoder_context, a_emb, sv_emb)
+                                loss += criterion(decoder_output[0], tensor_words[di])
                             
                             # Get most likely word index (highest value) from output
                                 topv, topi = decoder_output.data.topk(1)
@@ -140,8 +149,8 @@ def trainNet(NetModel):    #input_variable, target_variable, encdec, encdec_opti
                     # Backpropagation
                         loss.backward()
                         torch.nn.utils.clip_grad_norm(NetModel.emodel.parameters(), clip)
-                        torch.nn.utils.clip_grad_norm(NetModel.dmodel.parameters(), clip)
-                        encoder_optimizer.step()
+ #                      torch.nn.utils.clip_grad_norm(NetModel.dmodel.parameters(), clip)
+#                        encoder_optimizer.step()
                         decoder_optimizer.step()
                     
                  #   return loss.data[0] / target_length
