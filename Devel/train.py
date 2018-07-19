@@ -5,6 +5,7 @@
 
 from model import embedding
 from model import DecoderRNN
+from model import WenLSTM
 import data
 
 import random
@@ -101,7 +102,7 @@ def trainNet(NetModel):    #input_variable, target_variable, encdec, encdec_opti
 #                        encoder_hidden = NetModel.emodel.init_hidden()
                         #figure out why this is not recursive
                         
-                        a_emb, sv_emb, words_emb = embedding(NetModel, a, s, v, words)
+                        a_emb, sv_emb = embedding(NetModel, a, s, v)
 
  #                       for ei in range(input_length):
 #                                encoder_output, encoder_hidden = NetModel.emodel(tensor_words, encoder_hidden)
@@ -130,9 +131,11 @@ def trainNet(NetModel):    #input_variable, target_variable, encdec, encdec_opti
 #                        else:
                         # Without teacher forcing: use network's own prediction as the next input
 
+ #                       h_tm1, c_tm1 = WenLSTM.init_hidden()
                         #do not use teacher forcing
                         for di in range(input_length):
-                                decoder_output, decoder_context, decoder_hidden, decoder_attention = NetModel.dmodel(a_emb, sv_emb, words_emb)
+                                #decoder forward
+                                h_t, c_t, p_t = NetModel.dmodel(words[:-1,:], words[1:,:], NetModel.h0, NetModel.c0, a_emb, sv_emb)  #w_t, y_t, h0, c0, a_emb, sv_emb
                                 loss += criterion(decoder_output[0], tensor_words[di])
                             
                             # Get most likely word index (highest value) from output
