@@ -20,14 +20,37 @@ dropout_p = 0.05
 #still need to incorporate the slot value pairs with embedding
 
 class EncoderRNN(nn.Module):
-    def __init__(self, input_variable, hidden_size, n_layers):
+    def __init__(self, input_size, hidden_size,dfs, n_layers):
         super(EncoderRNN, self).__init__()
-        #defined in config file
-        self.input_variable = input_variable    #748 - actually this is how many words in vocab - I just want the length of input_variable
-        self.hidden_size = hidden_size  #80 
-        self.n_layers = n_layers
-        
-        self.myparameter = nn.Parameter(self.input_variable) #needs to be a tensor not int value
+        self.input_size = input_size    #748
+        self.hidden_size = hidden_size  #80
+        self.dfs = dfs                  #[0, 15, 149, 191, 200] - dimension of feature size
+
+        self.da = self.dfs[1] - self.dfs[0]   #15
+        self.ds = self.dfs[3] - self.dfs[2]   #42
+        self.dv = self.dfs[4] - self.dfs[3]   #9
+
+        #define random weighted matrices
+        self.Wah = 0.3 * torch.randn(self.da+1, self.hidden_size, dtype = torch.float64)
+        self.Wsh = 0.3 * torch.randn(self.ds+1, self.hidden_size, dtype = torch.float64)
+        self.Wvh = 0.3 * torch.randn(self.dv+1, self.hidden_size, dtype = torch.float64)
+        self.Wemb = 0.3 * torch.randn(self.input_size, self.hidden_size, dtype = torch.float64)
+
+        self.Wah[self.da,:] = 0.0
+        self.Wsh[self.ds,:] = 0.0
+        self.Wvh[self.dv,:] = 0.0
+
+        #set boundaries for the weighted matrices
+        self.Wah = torch.clamp(self.Wah, min = -1.0, max = 1.0)
+        self.Wsh = torch.clamp(self.Wsh, min = -1.0, max = 1.0)
+        self.Wvh = torch.clamp(self.Wvh, min = -1.0, max = 1.0)
+        self.Wemb = torch.clamp(self.Wemb, min = -1.0, max = 1.0) 
+
+        #specify emodel's parameters for optimization
+        self.Wah_parameter = nn.Parameter(self.Wah)
+        self.Wsh_parameter = nn.Parameter(self.Wsh)
+        self.Wvh_parameter = nn.Parameter(self.Wvh)
+        self.Wemb_parameter = nn.Parameter(self.Wemb)
 
     def setWordVec(self, word2vec):   
         self.Wemb_np = self.Wemb.get_value()
@@ -36,18 +59,40 @@ class EncoderRNN(nn.Module):
         self.Wemb.set_value(self.Wemb_np)
 
     def _emb(self, a, s, v):
-        a_emb = T.sum(self.Wah[a,:],axis=0)
+        a_emb = torch.sum(self.Wah[a,:],dim=0)  #sum over the rows
         s_emb = self.Wsh[s,:]
         v_emb = self.Wvh[v,:]
         sv_emb= s_emb + v_emb
         return a_emb, sv_emb
 
-    def forward(self, word_inputs, hidden):
+    def unroll(self,a,s,v,words,cutoff_f,cutoff_b):
+        
+        # embed DA
+        for i in range(10):  #don't know what range value should be
+            a_emb,sv_emb= self._emb(a,s,v)
+ #       sv_emb = sv_emb.dimshuffle(1,0,2)
+        # recurrence
+ #       [h,c,p],_ = theano.scan(fn=self._recur,
+#                sequences=[words[:-1,:],words[1:,:]],
+#                outputs_info=[self.h0,self.c0,None],
+#                non_sequences=[a_emb,sv_emb])
+        # compute desired sent_logp by slicing
+#        cutoff_logp = collectSentLogp(p,cutoff_f[4],cutoff_b)
+#        cost = -T.sum(cutoff_logp)
+        print("(debug) this is what a_emb holds ",a_emb)
+        print("(debug) this is what s_emb holds ",sv_emb)
+        return a_emb, sv_emb
+
+ #   def forward(self, tensor_a, tensor_s, tensor_v):
         # Note: we run this all at once (over the whole input sequence)
-        seq_len = len(word_inputs)
-        embedded = self.setWordVec(word_inputs).view(seq_len, 1, -1)
+ #       seq_len = len(word_inputs)
+#        embedded = self.setWordVec(word_inputs).view(seq_len, 1, -1)
  #       output, hidden = self.gru(embedded, hidden)
-        return output, hidden       
+#         a_emb,s_emb, v_emb = self._emb(tensor_a, tensor_s, tensor_v)
+#         print("(debug) this is what a_emb holds ",a_emb)
+#         print("(debug) this is what s_emb holds ",s_emb)
+#         print("(debug) this is what v_emb holds ",v_emb)
+#         return a_emb, s_emb, v_emb      
 
     def init_hidden(self):
         hidden = Variable(torch.zeros(self.n_layers, 1, self.hidden_size))
@@ -118,11 +163,11 @@ class WenAttn(nn.Module):
         super(WenAttn, self).__init__()
         
         self.hidden_size = hidden_size
-        self.attn = nn.Linear(self.hidden_size, hidden_size)   
+ #       self.attn = nn.Linear(self.hidden_size, hidden_size)   
 
  #      
-    def forward(self,hidden,encoder_outputs):
-        seq_len = len(encoder_outputs)
+    def forward(self,hidden,sv_emb):
+        seq_len = len(sv_emb)
 
         # Create variable to store attention scores
         attn_scores = Variable(torch.zeros(seq_len)) # B x 1 x S
@@ -130,13 +175,14 @@ class WenAttn(nn.Module):
 
         # Calculate scores for each encoder output
         for i in range(seq_len):
-            attn_scores[i] = self.score(hidden, encoder_outputs[i])
+            attn_scores[i] = self.attend(hidden, sv_emb[i])
 
         # Normalize scores to weights in range 0 to 1, resize to 1 x 1 x seq_len
         return F.softmax(attn_scores).unsqueeze(0).unsqueeze(0)
 
-    def attend(self,hidden_size, encoder_output):
-        score_x = self.attn(encoder_output)
+
+    def attend(self,hidden_size, sv_emb):
+        score_x = nn.Linear(sv_emb)
         score_x = hidden.dot(score_x)
         
  #       state_x = nn.Linear(hidden_size,attn)   
@@ -156,30 +202,34 @@ class DecoderRNN(nn.Module):
         self.dropout_p = dropout_p
         
         # Define layers
-        self.embedding = nn.Embedding(output_size, hidden_size)
+ #       self.embedding = nn.Embedding(output_size, hidden_size)
         #change to LSTM not GRU
         self.lstm = LSTM(hidden_size * 2, hidden_size, n_layers) #, dropout=dropout_p)
         self.out = nn.Linear(hidden_size * 2, output_size)
  #       self.softmax = nn.LogSoftmax(dim=1)
-        self.cross_entrophy = nn.CrossEntropyLoss()
+ #       self.cross_entrophy = nn.CrossEntropyLoss()
 
         self.attn = WenAttn(hidden_size)
      
     
-    def forward(self, input, last_context, last_hidden, encoder_outputs):
+    def forward(self, input, last_context, a_emb, sv_emb):
         # Note: we run this one step at a time
         
         # Get the embedding of the current input word (last output word)
-        word_embedded = self.embedding(input).view(1, 1, -1) # S=1 x B x N
-        
+   #     word_embedded = nn.Embedding(input).view(1, 1, -1) # S=1 x B x N
+
+        attn_weights = self.attn(self.hidden_size,sv_emb)
+
+        sv_emb_t = torch.dot(attn_weights, sv_emb)
+        da_emb_t = nn.Tanh(a_emb + sv_emb_t)
         # Combine embedded input word and last context, run through RNN
-        decoder_input = torch.cat((word_embedded, last_context.unsqueeze(0)), 2)
+ #      decoder_input = torch.cat((word_embedded, last_context.unsqueeze(0)), 2)
         #change to LSTM
         decoder_output, hidden = self.lstm(decoder_input, last_hidden)
-
+        
         
         # Calculate attention from current RNN state and all encoder outputs; apply to encoder outputs
-        attn_weights = WenAttn(encoder_outputs.squeeze(0))     #rnn_output.squeeze(0),
+ #       attn_weights = WenAttn(encoder_outputs.squeeze(0))     #rnn_output.squeeze(0),
         context = attn_weights.bmm(encoder_outputs.transpose(0, 1)) # B x 1 x N
         
         # Final output layer (next word prediction) using the RNN hidden state and context vector
