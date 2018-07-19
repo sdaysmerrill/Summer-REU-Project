@@ -29,7 +29,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     args.cuda = not args.no_cuda and torch.cuda.is_available()
 
-    
+
    
     if args.config == 'encdec.cfg':
         config = 'encdec.cfg'    #set config file
