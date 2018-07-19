@@ -20,6 +20,8 @@ import torch.nn.functional as F
 #from NNGenerator import *
 from model import EncoderRNN
 from model import DecoderRNN
+from train import trainNet
+
 from loader.DataReader import *
 from loader.GentScorer import *
 
@@ -142,7 +144,7 @@ class NetModel(object):
                 print '\tsetting recurrent generator, type: %s ...' % \
                         self.gentype
                 #call the EncDecRNN model in model.py with parameters input_size, hidden_size, n_layers, and dropout_p
-            self.emodel =  EncoderRNN(self.di,self.dh,n_layers) #NNGenerator(self.gentype, self.reader.vocab,
+            self.emodel =  EncoderRNN(self.di,self.dh,self.reader.dfs, n_layers) #NNGenerator(self.gentype, self.reader.vocab,
  #                   self.beamwidth, self.overgen,
 #                    self.di, self.dh, self.batch, self.reader.dfs, 
 #                    self.obj, self.mode, self.decode, 
