@@ -129,10 +129,11 @@ class DataReader(object):
                 proc_data[i].append(proc_data[i][-1])
                 lengs[i].append(len(proc_data[i][-1]))
         # input/output
-        a,sv,s,v =  np.array(proc_data[0],dtype=np.int32),\
-                    np.array(proc_data[1],dtype=np.int32),\
-                    np.array(proc_data[2],dtype=np.int32),\
-                    np.array(proc_data[3],dtype=np.int32)
+        #these were int32 but changed to int64 since they had to be long or byte to be used as indices for model embedding
+        a,sv,s,v =  np.array(proc_data[0],dtype=np.int64),\
+                    np.array(proc_data[1],dtype=np.int64),\
+                    np.array(proc_data[2],dtype=np.int64),\
+                    np.array(proc_data[3],dtype=np.int64)
         if mode!='test':
             words= np.swapaxes(np.array(proc_data[4],dtype=np.int32),0,1)
         else:
