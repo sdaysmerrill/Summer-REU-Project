@@ -33,8 +33,8 @@ def _emb(NetModel, a, s, v):
     a_emb = torch.sum(NetModel.Wah[a,:],dim = 0)  #sum over the rows
     s_emb = NetModel.Wsh[s,:]
     v_emb = NetModel.Wvh[v,:]
-    print("s_emb", s_emb)
-    print("v_emb", v_emb)
+ #   print("s_emb", s_emb)
+#    print("v_emb", v_emb)
     sv_emb= s_emb + v_emb
     return a_emb, sv_emb
 
@@ -42,6 +42,7 @@ def embedding(NetModel, a,s,v):
         
     # embed DA
     a_emb,sv_emb= _emb(NetModel, a,s,v)
+    torch.unsqueeze(a_emb, 0)
     torch.unsqueeze(sv_emb, 0)
  #       sv_emb = sv_emb.dimshuffle(1,0,2)
         # recurrence
@@ -52,8 +53,8 @@ def embedding(NetModel, a,s,v):
         # compute desired sent_logp by slicing
 #        cutoff_logp = collectSentLogp(p,cutoff_f[4],cutoff_b)
 #        cost = -T.sum(cutoff_logp)
-    print("(debug) this is what a_emb holds ",a_emb)
-    print("(debug) this is what sv_emb holds ",sv_emb)
+ #   print("(debug) this is what a_emb holds ",a_emb)
+#    print("(debug) this is what sv_emb holds ",sv_emb)
     return a_emb, sv_emb 
 
  #   def forward(self, tensor_a, tensor_s, tensor_v):
@@ -104,9 +105,9 @@ class WenLSTM(nn.Module):
  #       self.decoder = DecoderRNN(self.input_size, self.hidden_size, n_layers = 2, dropout_p = dropout_p)
 
 
-    def forward(self, wv_t,y_t, da_emb_t, h_tm1, c_tm1):
+    def forward(self, w_i,y_i, da_emb_t, h_tm1, c_tm1):
         
-        gates_t = torch.dot(torch.cat((wv_t, h_tm1, da_emb_t), 1), self.Wgate)  #concatenate along axis = 1
+        gates_t = torch.dot(torch.cat((w_i, h_tm1, da_emb_t), 1), self.Wgate)  #concatenate along axis = 1
         #compute gates
         ig = nn.Sigmoid(gates_t[:,:self.hidden_size])
         fg = nn.Sigmoid(gates_t[:, self.hidden_size:self.hidden_size * 2])
@@ -118,7 +119,7 @@ class WenLSTM(nn.Module):
         h_t = og * nn.Tanh(c_t)
         #compute output distribution target word probability
         o_t = nn.Softmax(torch.dot(h_t, self.Who))
-        p_t = o_t[torch.arange(NetModel.db), y_t]  #where does db come from??
+        p_t = o_t[torch.arange(NetModel.db), y_i]  #where does db come from??
 
         return h_t, c_t, p_t
         
@@ -161,8 +162,8 @@ class WenAttn(nn.Module):
  #       self.attn = nn.Linear(self.hidden_size, hidden_size)   
 
  #      
-    def forward(self,sv_emb, wv_t, h_tm1):
-        attn_weights = self.attend(sv_emb, wv_t, h_tm1)
+    def forward(self,sv_emb, w_i, h_tm1):
+        attn_weights = self.attend(sv_emb, w_i, h_tm1)
  #      seq_len = len(sv_emb)
 
         # Create variable to store attention scores
@@ -179,8 +180,8 @@ class WenAttn(nn.Module):
         return attn_weights
 
 
-    def attend(self, sv_emb, wv_t, h_tm1):
-        state_x = torch.cat([wv_t, h_tm1, sv_emb], dim = 1)    
+    def attend(self, sv_emb, w_i, h_tm1):
+        state_x = torch.cat([w_i, h_tm1, sv_emb], dim = 1)    
         score_x = torch.dot(nn.Tanh(torch.dot(state_x, self.Wha)), self.Vha)  
     
         return score_x
@@ -215,24 +216,26 @@ class DecoderRNN(nn.Module):
         self.attn = WenAttn(hidden_size)
      
     
-    def forward(self, w_t, y_t, h_tm1, c_tm1, a_emb, sv_emb):
+    def forward(self, w_i, y_i, h_tm1, c_tm1, a_emb, sv_emb):
         # Note: we run this one step at a time
         
         # Get the embedding of the current input word (last output word)
    #     word_embedded = nn.Embedding(input).view(1, 1, -1) # S=1 x B x N
 
        #input words embedding
-        wv_t = self.Wemb[w_t,:]
-        wv_t = nn.Sigmoid(wv_t) ##T.nnet.sigmoid(self.Wemb[w_t,:])  #self.Wemb[w_t, :] is a symbolic tensor that's why I couldn't use nn.Sigmoid
-        torch.unsqueeze(wv_t, 0)
+ # #      print(self.Wemb)
+#        wv_t = nn.Sigmoid(self.Wemb[w_t,:]) ##T.nnet.sigmoid(self.Wemb[w_t,:])  #self.Wemb[w_t, :] is a symbolic tensor that's why I couldn't use nn.Sigmoid
+        
  #       input_sigmoid = self.Wemb[w_t,:]
  #       wv_t = wv_t(input_sigmoid)
 
         #forward for WenAttn
-        print("sv_emb debugging", sv_emb)
-        print("wv_t debugging", wv_t)
-        print("h_tm1 debugging",h_tm1)
-        attn_weights = self.attn(sv_emb, wv_t, h_tm1)
+ #       print("sv_emb debugging", sv_emb)
+#        print("wv_t debugging", wv_t)
+#        print("h_tm1 debugging",h_tm1)
+        w_i = nn.ReLU(w_i)
+        y_i = nn.ReLU(y_i)
+        attn_weights = self.attn(sv_emb, w_i, h_tm1)
 
         sv_emb_t = torch.dot(attn_weights, sv_emb)
         da_emb_t = nn.Tanh(a_emb + sv_emb_t)
@@ -241,7 +244,7 @@ class DecoderRNN(nn.Module):
         #change to LSTM
 
         #forward for WenLSTM
-        h_t, c_t, p_t = self.lstm(wv_t,y_t, da_emb_t,h_tm1, c_tm1)
+        h_t, c_t, p_t = self.lstm(w_i,y_i, da_emb_t,h_tm1, c_tm1)
         
         
         # Calculate attention from current RNN state and all encoder outputs; apply to encoder outputs
