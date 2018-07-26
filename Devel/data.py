@@ -140,11 +140,14 @@ class NetModel(object):
             self.Wah = 0.3 * torch.randn(self.da+1, self.dh, dtype = torch.float64)
             self.Wsh = 0.3 * torch.randn(self.ds+1, self.dh, dtype = torch.float64)
             self.Wvh = 0.3 * torch.randn(self.dv+1, self.dh, dtype = torch.float64)
-            self.Wemb = theano.shared(0.3 * np.random.uniform(-1.0,1.0,(self.di, self.dh)).astype(theano.config.floatX))
 
+            #word embedding weight matrix
+            self.Wemb = theano.shared(0.3 * np.random.uniform(-1.0,1.0,(self.di, self.dh)).astype(theano.config.floatX))
+            
             self.Wah[self.da,:] = 0.0
             self.Wsh[self.ds,:] = 0.0
             self.Wvh[self.dv,:] = 0.0
+
 
             #set boundaries for the weighted matrices
             self.Wah = torch.clamp(self.Wah, min = -1.0, max = 1.0)
