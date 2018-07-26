@@ -49,15 +49,7 @@ def trainNet(NetModel):    #input_variable, target_variable, encdec, encdec_opti
                         reg = 0 if random.randint(0,9)==5 else NetModel.beta  #half the time reg = 0
                         # unfold data point
                         a,sv,s,v,words, _, _,cutoff_b,cutoff_f = data
-
- #                       tensor_a = torch.from_numpy(a)
-#                        tensor_sv = torch.from_numpy(sv)
-#                        tensor_s = torch.from_numpy(s)
-#                        tensor_v = torch.from_numpy(v)
-#                        tensor_words = torch.from_numpy(words)
-
                         
- #                       print("(debug) number of rows in tensor_a = ", tensor_a.size().size[0]) 
  #                       print(a)  #[[7]]
 #                        print(sv) #[[82 101]]
 #                        print(s)  #[[24 31]]
