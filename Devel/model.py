@@ -12,6 +12,7 @@ import torch.nn as nn
 from torch.autograd import Variable
 
 import theano
+import theano.tensor as T
 import numpy as np
 
 
@@ -29,16 +30,19 @@ def setWordVec(NetModel,word2vec):
     NetModel.Wemb.set_value(Wemb_np)
 
 def _emb(NetModel, a, s, v):
-    a_emb = torch.sum(NetModel.Wah[a,:],dim=0)  #sum over the rows
+    a_emb = torch.sum(NetModel.Wah[a,:],dim = 0)  #sum over the rows
     s_emb = NetModel.Wsh[s,:]
     v_emb = NetModel.Wvh[v,:]
+    print("s_emb", s_emb)
+    print("v_emb", v_emb)
     sv_emb= s_emb + v_emb
     return a_emb, sv_emb
 
 def embedding(NetModel, a,s,v):
         
     # embed DA
-    a_emb,sv_emb= _emb(NetModel, a,s,v) 
+    a_emb,sv_emb= _emb(NetModel, a,s,v)
+    torch.unsqueeze(sv_emb, 0)
  #       sv_emb = sv_emb.dimshuffle(1,0,2)
         # recurrence
  #       [h,c,p],_ = theano.scan(fn=self._recur,
@@ -49,7 +53,7 @@ def embedding(NetModel, a,s,v):
 #        cutoff_logp = collectSentLogp(p,cutoff_f[4],cutoff_b)
 #        cost = -T.sum(cutoff_logp)
     print("(debug) this is what a_emb holds ",a_emb)
-    print("(debug) this is what s_emb holds ",sv_emb)
+    print("(debug) this is what sv_emb holds ",sv_emb)
     return a_emb, sv_emb 
 
  #   def forward(self, tensor_a, tensor_s, tensor_v):
@@ -157,24 +161,27 @@ class WenAttn(nn.Module):
  #       self.attn = nn.Linear(self.hidden_size, hidden_size)   
 
  #      
-    def forward(self,hidden,sv_emb):
-        seq_len = len(sv_emb)
+    def forward(self,sv_emb, wv_t, h_tm1):
+        attn_weights = self.attend(sv_emb, wv_t, h_tm1)
+ #      seq_len = len(sv_emb)
 
         # Create variable to store attention scores
-        attn_scores = Variable(torch.zeros(seq_len)) # B x 1 x S
-        if USE_CUDA: attn_scores = attn_scores.cuda()
+#        attn_scores = Variable(torch.zeros(seq_len)) # B x 1 x S
+#        if USE_CUDA: attn_scores = attn_scores.cuda()
 
         # Calculate scores for each encoder output
-        for i in range(seq_len):
-            attn_scores[i] = self.attend(hidden, sv_emb[i])
+#        for i in range(seq_len):
+#            attn_scores[i] = self.attend(hidden, sv_emb[i])
 
         # Normalize scores to weights in range 0 to 1, resize to 1 x 1 x seq_len
-        return F.softmax(attn_scores).unsqueeze(0).unsqueeze(0)
+#        return F.softmax(attn_scores).unsqueeze(0).unsqueeze(0)
+
+        return attn_weights
 
 
     def attend(self, sv_emb, wv_t, h_tm1):
-        state_x = torch.cat([wv_t, h_tm1, sv_emb], axis = 1)    
-        score_x = torch.dot(nn.Tanh(torhc.dot(state_x, self.Wha)), self.Vha)  
+        state_x = torch.cat([wv_t, h_tm1, sv_emb], dim = 1)    
+        score_x = torch.dot(nn.Tanh(torch.dot(state_x, self.Wha)), self.Vha)  
     
         return score_x
 
@@ -215,8 +222,16 @@ class DecoderRNN(nn.Module):
    #     word_embedded = nn.Embedding(input).view(1, 1, -1) # S=1 x B x N
 
        #input words embedding
-        wv_t = nn.Sigmoid(self.Wemb[w_t,:])
+        wv_t = self.Wemb[w_t,:]
+        wv_t = nn.Sigmoid(wv_t) ##T.nnet.sigmoid(self.Wemb[w_t,:])  #self.Wemb[w_t, :] is a symbolic tensor that's why I couldn't use nn.Sigmoid
+        torch.unsqueeze(wv_t, 0)
+ #       input_sigmoid = self.Wemb[w_t,:]
+ #       wv_t = wv_t(input_sigmoid)
 
+        #forward for WenAttn
+        print("sv_emb debugging", sv_emb)
+        print("wv_t debugging", wv_t)
+        print("h_tm1 debugging",h_tm1)
         attn_weights = self.attn(sv_emb, wv_t, h_tm1)
 
         sv_emb_t = torch.dot(attn_weights, sv_emb)
@@ -224,6 +239,8 @@ class DecoderRNN(nn.Module):
         # Combine embedded input word and last context, run through RNN
  #      decoder_input = torch.cat((word_embedded, last_context.unsqueeze(0)), 2)
         #change to LSTM
+
+        #forward for WenLSTM
         h_t, c_t, p_t = self.lstm(wv_t,y_t, da_emb_t,h_tm1, c_tm1)
         
         
