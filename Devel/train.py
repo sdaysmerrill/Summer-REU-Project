@@ -8,6 +8,7 @@ from model import DecoderRNN
 from model import WenLSTM
 import data
 
+import numpy as np
 import random
 import time
 import math
@@ -49,7 +50,7 @@ def trainNet(NetModel):    #input_variable, target_variable, encdec, encdec_opti
                         reg = 0 if random.randint(0,9)==5 else NetModel.beta  #half the time reg = 0
                         # unfold data point
                         a,sv,s,v,words, _, _,cutoff_b,cutoff_f = data
-                        
+                        print(words.shape)
  #                       print(a)  #[[7]]
 #                        print(sv) #[[82 101]]
 #                        print(s)  #[[24 31]]
@@ -125,9 +126,32 @@ def trainNet(NetModel):    #input_variable, target_variable, encdec, encdec_opti
 
  #                       h_tm1, c_tm1 = WenLSTM.init_hidden()
                         #do not use teacher forcing
+
+         
+                        torch.unsqueeze(NetModel.h0, 0)
+                        torch.unsqueeze(NetModel.c0, 0)
+
+                        w_t = words[:-1,:]  #had error that said must be Tensor not numpy ndarray so added line above
+                          #print(self.Wemb)
+                        w_t = np.ravel(w_t)
+
+                        wv_t = NetModel.Wemb[w_t,:]
+                        print("size of wv_t", wv_t.shape)
+                        print(wv_t)
+     
+                        y_t = words[1:,:]
+                        y_t = np.ravel(y_t)
+                        yv_t = NetModel.Wemb[y_t,:]
                         for di in range(input_length):
                                 #decoder forward
-                                h_t, c_t, p_t = NetModel.dmodel(words[:-1,:], words[1:,:], NetModel.h0, NetModel.c0, a_emb, sv_emb)  #w_t, y_t, h0, c0, a_emb, sv_emb
+
+                                w_i = torch.Tensor(wv_t[di,:])
+                                torch.unsqueeze(w_i, 0)
+                                
+                                y_i = torch.Tensor(yv_t[di,:])
+                                torch.unsqueeze(y_i, 0)
+                                
+                                h_t, c_t, p_t = NetModel.dmodel(w_i, y_i, NetModel.h0, NetModel.c0, a_emb, sv_emb)  #w_t, y_t, h0, c0, a_emb, sv_emb
                                 loss += criterion(decoder_output[0], tensor_words[di])
                             
                             # Get most likely word index (highest value) from output
